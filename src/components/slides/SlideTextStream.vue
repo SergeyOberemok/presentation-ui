@@ -10,6 +10,10 @@ const props = defineProps({
   // has actually reached this node yet - see the watcher below. Optional
   // because tests may mount this component standalone.
   index: { type: Number, default: null },
+  // Fetch the first chunk as soon as this node becomes current. When false
+  // (aside panel), the slide starts empty and the first ArrowRight - routed
+  // through the capture below - starts the stream instead.
+  autoStart: { type: Boolean, default: true },
 })
 
 const { text, isStreaming, hasFailed, isDone, fetchNextChunk, started } = useSlideTextStream(
@@ -33,13 +37,17 @@ const isCurrent = computed(() => props.index === currentIndex.value)
 watch(
   [isCurrent, () => props.filename],
   ([current]) => {
-    if (!current) {
+    // A fully streamed slide has nothing left for ArrowRight to reveal, so
+    // revisiting it (ArrowLeft back onto a main-feed node, whose instance and
+    // isDone state survive) must not re-capture: the isDone watcher below
+    // won't fire again to release it.
+    if (!current || isDone.value) {
       release()
       return
     }
 
     capture({ onNext: fetchNextChunk })
-    if (!started.value) fetchNextChunk()
+    if (props.autoStart && !started.value) fetchNextChunk()
   },
   { immediate: true },
 )

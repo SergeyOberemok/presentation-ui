@@ -98,4 +98,14 @@ describe('useTourCapture', () => {
     expect(await mainTour.handlePrev()).toBe(false)
     expect(tourStore.activeCapture).toBeNull()
   })
+
+  it('handleNext() releases and reports unhandled when onNext returns false', async () => {
+    const tourStore = useTourStore()
+    const { capture, handleNext } = useTourCapture()
+
+    capture({ onNext: vi.fn().mockResolvedValue(false) }) // nothing left to reveal
+
+    expect(await handleNext()).toBe(false)
+    expect(tourStore.activeCapture).toBeNull()
+  })
 })

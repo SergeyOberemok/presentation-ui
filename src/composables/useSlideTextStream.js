@@ -34,10 +34,14 @@ export function useSlideTextStream(filename, options = {}) {
     buildSlideStreamUrl(toValue(filename), { delayMs: toValue(delayMs), chunk: chunk.value }),
   )
 
+  // autoConnect: false - useEventSource would otherwise reopen on every url
+  // change, including the filename/chunk reset in resetAll(), firing a
+  // request for a stream nobody asked for (before `started` is even set).
+  // Connections are opened only by fetchNextChunk().
   const { data, event, lastEventId, status, error, close, open } = useEventSource(
     url,
     [MESSAGE_EVENT, DONE_EVENT],
-    { autoReconnect: false, immediate: false },
+    { autoReconnect: false, immediate: false, autoConnect: false },
   )
 
   function resetAll() {
@@ -96,26 +100,26 @@ export function useSlideTextStream(filename, options = {}) {
   const isStreaming = computed(() => started.value && status.value !== 'CLOSED')
   const hasFailed = computed(() => error.value != null && !chunkFinished.value)
 
+  // Returns false once the whole file is streamed (nothing left to fetch), so
+  // it can be used directly as a useTourCapture onNext handler; true when a
+  // request was started or one is still in flight.
   function fetchNextChunk() {
-    if (isStreaming.value || isDone.value) return
+    if (isDone.value) return false
+    if (isStreaming.value) return true
 
     if (!started.value) {
       started.value = true
-      open()
-      return
-    }
-
-    if (chunkFinished.value) {
+    } else if (chunkFinished.value) {
       chunkFinished.value = false
-      // Changing chunk changes the computed url, which useEventSource's own
-      // autoConnect watcher reacts to by reopening - no explicit open() here.
+      // `url` is a computed, so open() below already reads the new chunk.
       chunk.value += 1
-      return
+    } else {
+      // Previous attempt errored out before a "done" arrived - retry the same chunk.
+      chunkLines.value = []
     }
 
-    // Previous attempt errored out before a "done" arrived - retry the same chunk.
-    chunkLines.value = []
     open()
+    return true
   }
 
   return {

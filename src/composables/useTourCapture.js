@@ -7,7 +7,12 @@ import { useTourStore } from '@/stores/tour'
 //
 // capture({ onNext, onPrev }) makes useGuidedTour route arrow keys here
 // instead of its own next()/prev():
-// - ArrowRight always calls onNext().
+// - ArrowRight calls onNext(). Returning (or resolving to) exactly `false`
+//   means the capture has nothing left to reveal, so control releases back
+//   to the main tour and its normal next() runs in the same keypress -
+//   otherwise a capture that outlived its content (e.g. a finished slide
+//   revisited via ArrowLeft) would swallow ArrowRight forever. Any other
+//   return value (including undefined) counts as handled.
 // - ArrowLeft calls onPrev() if given. onPrev() may return (or resolve to)
 //   true if it stepped backward itself; returning false/undefined (or
 //   omitting onPrev entirely) means the capture has no previous step to go
@@ -42,8 +47,11 @@ export function useTourCapture() {
   async function handleNext() {
     const active = tourStore.activeCapture
     if (!active) return false
-    await active.onNext?.()
-    return true
+
+    if ((await active.onNext?.()) !== false) return true
+
+    tourStore.release()
+    return false
   }
 
   async function handlePrev() {

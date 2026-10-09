@@ -7,7 +7,7 @@ export const useTourStore = defineStore('tour', () => {
 
   // Lets a dynamic node component (e.g. SlideTextStream) temporarily take
   // over ArrowRight/ArrowLeft from useGuidedTour - see useTourCapture().
-  const activeCapture = ref(null) // null | { token, onNext: () => void, onPrev?: () => boolean }
+  const activeCapture = ref(null) // null | { token, onNext: () => boolean | void, onPrev?: () => boolean }
   let captureSeq = 0
 
   // Avoid Math.min/max(...keys()): this feed never evicts old pages, so

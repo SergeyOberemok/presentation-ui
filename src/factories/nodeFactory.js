@@ -13,14 +13,24 @@ const TYPE_RESOLVERS = {
     props: { value: node.value },
     defaultDestination: 'main',
   }),
-  file: (node) => ({
-    component: SlideTextStream,
-    props: { filename: node.value, index: node.index },
+  file: (node) => {
     // `file:json` is meant to render as an inline code slide in the main
     // feed; every other file type still defaults to the aside ("chat")
     // panel the backend originally designed this namespace around.
-    defaultDestination: node.type === 'file:json' ? 'main' : 'chat',
-  }),
+    const defaultDestination = node.type === 'file:json' ? 'main' : 'chat'
+
+    return {
+      component: SlideTextStream,
+      props: {
+        filename: node.value,
+        index: node.index,
+        // An inline slide streams its first chunk as soon as the tour reaches
+        // it; the aside opens empty and waits for ArrowRight to start.
+        autoStart: (node.destination ?? defaultDestination) === 'main',
+      },
+      defaultDestination,
+    }
+  },
 }
 
 export function resolveNodeDescriptor(node) {

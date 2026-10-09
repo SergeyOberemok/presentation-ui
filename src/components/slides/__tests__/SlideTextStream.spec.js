@@ -116,4 +116,27 @@ describe('SlideTextStream', () => {
 
     expect(release).toHaveBeenCalledTimes(1)
   })
+
+  it('does not re-capture a fully streamed slide when the tour comes back to it', async () => {
+    // Main-feed instances survive the tour moving away, so isDone stays true
+    // and its watcher never fires again to release a fresh capture.
+    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
+    stream.started.value = true
+    stream.isDone.value = true
+    await wrapper.vm.$nextTick()
+    capture.mockClear()
+
+    currentIndex.value = 1
+    await wrapper.vm.$nextTick()
+
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('with autoStart false, captures but waits for ArrowRight (onNext) to start streaming', () => {
+    // Aside-panel slides open empty; the first ArrowRight fetches chunk 0.
+    mount(SlideTextStream, { props: { filename: 'a.md', index: 0, autoStart: false } })
+
+    expect(capture).toHaveBeenCalledWith({ onNext: stream.fetchNextChunk })
+    expect(stream.fetchNextChunk).not.toHaveBeenCalled()
+  })
 })

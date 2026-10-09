@@ -218,4 +218,22 @@ describe('useNodesStore', () => {
       expect(store.itemsByIndex.has(3)).toBe(false)
     })
   })
+
+  it('joins an in-flight loadNext instead of resolving immediately', async () => {
+    let resolveFetch
+    fetchNodesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
+    const store = useNodesStore()
+
+    store.loadNext()
+    let joinedSettled = false
+    const joined = store.loadNext().then(() => (joinedSettled = true))
+    await Promise.resolve()
+    expect(joinedSettled).toBe(false) // still waiting on the shared fetch
+
+    resolveFetch(page(1, [{ type: 'text', value: 'a' }]))
+    await joined
+
+    expect(store.itemsByIndex.has(0)).toBe(true)
+    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+  })
 })

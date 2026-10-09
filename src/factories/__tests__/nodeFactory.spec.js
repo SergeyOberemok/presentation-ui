@@ -21,7 +21,7 @@ describe('resolveNodeDescriptor', () => {
     })
 
     expect(descriptor.component).toBe(SlideTextStream)
-    expect(descriptor.props).toEqual({ filename: 'notes.md', index: 3 })
+    expect(descriptor.props).toEqual({ filename: 'notes.md', index: 3, autoStart: false })
     expect(descriptor.destination).toBe('chat')
   })
 
@@ -39,7 +39,7 @@ describe('resolveNodeDescriptor', () => {
     const descriptor = resolveNodeDescriptor({ type: 'file:json', value: 'test.json', index: 2 })
 
     expect(descriptor.component).toBe(SlideTextStream)
-    expect(descriptor.props).toEqual({ filename: 'test.json', index: 2 })
+    expect(descriptor.props).toEqual({ filename: 'test.json', index: 2, autoStart: true })
     expect(descriptor.destination).toBe('main')
   })
 
@@ -51,6 +51,7 @@ describe('resolveNodeDescriptor', () => {
     })
 
     expect(descriptor.destination).toBe('main')
+    expect(descriptor.props.autoStart).toBe(true) // streams inline like file:json
   })
 
   it('respects an explicit destination override on a file:json node', () => {
@@ -61,6 +62,7 @@ describe('resolveNodeDescriptor', () => {
     })
 
     expect(descriptor.destination).toBe('chat')
+    expect(descriptor.props.autoStart).toBe(false) // aside waits for ArrowRight
   })
 
   it('falls back to the text resolver for an unknown type', () => {

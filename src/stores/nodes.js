@@ -38,8 +38,33 @@ export const useNodesStore = defineStore('nodes', () => {
     totalPages.value = data.total_pages
   }
 
-  async function loadNext() {
-    if (isLoadingNext.value || !hasNext.value) return
+  // A call made while a load is already in flight joins that request instead
+  // of returning immediately: callers that loop until data shows up (e.g.
+  // useGuidedTour.goTo, racing InfiniteNodeFeed's sentinels) would otherwise
+  // spin on resolved promises - microtasks only - starving the very fetch
+  // they're waiting for and freezing the tab.
+  let nextRequest = null
+  let prevRequest = null
+
+  function loadNext() {
+    if (nextRequest) return nextRequest
+    if (!hasNext.value) return Promise.resolve()
+    nextRequest = doLoadNext().finally(() => {
+      nextRequest = null
+    })
+    return nextRequest
+  }
+
+  function loadPrev() {
+    if (prevRequest) return prevRequest
+    if (!hasPrev.value) return Promise.resolve()
+    prevRequest = doLoadPrev().finally(() => {
+      prevRequest = null
+    })
+    return prevRequest
+  }
+
+  async function doLoadNext() {
     isLoadingNext.value = true
 
     try {
@@ -61,8 +86,7 @@ export const useNodesStore = defineStore('nodes', () => {
     }
   }
 
-  async function loadPrev() {
-    if (isLoadingPrev.value || !hasPrev.value) return
+  async function doLoadPrev() {
     isLoadingPrev.value = true
 
     try {

@@ -173,11 +173,13 @@ describe('useSlideTextStream', () => {
       await nextTick()
       es.status.value = 'CLOSED' // real useEventSource.close() does this; the mock doesn't
 
+      es.open.mockClear()
       fetchNextChunk()
       await nextTick()
 
       const [urlArg] = useEventSource.mock.calls[0]
       expect(urlArg.value).toBe('/slides/a.md?chunk=1')
+      expect(es.open).toHaveBeenCalledTimes(1) // explicit, since autoConnect is off
     })
 
     it('does nothing when fetchNextChunk is called again after isDone', async () => {
@@ -189,7 +191,7 @@ describe('useSlideTextStream', () => {
       await nextTick()
 
       es.open.mockClear()
-      fetchNextChunk()
+      expect(fetchNextChunk()).toBe(false) // lets a tour capture hand control back
 
       const [urlArg] = useEventSource.mock.calls[0]
       expect(urlArg.value).toBe('/slides/a.md')
