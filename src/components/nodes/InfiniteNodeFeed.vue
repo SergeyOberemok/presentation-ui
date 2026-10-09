@@ -2,7 +2,8 @@
 import { computed, nextTick, useTemplateRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNodesStore } from '@/stores/nodes'
-import { useIntersectionObserver, isWithinRootBounds } from '@/composables/useIntersectionObserver'
+import { useIntersectionObserver } from '@vueuse/core'
+import { isWithinRootBounds } from '@/utils/isWithinRootBounds'
 import { useScrollAnchoredPrepend } from '@/composables/useScrollAnchoredPrepend'
 import { useTourMediator } from '@/composables/useTourMediator'
 import { useGuidedTour } from '@/composables/useGuidedTour'
@@ -14,7 +15,7 @@ import NodeDetailPanel from '@/components/aside/NodeDetailPanel.vue'
 const SENTINEL_MARGIN = 400
 
 const nodesStore = useNodesStore()
-const { hasNext, hasPrev, nextError, prevError, items } = storeToRefs(nodesStore)
+const { hasNext, hasPrev, nextError, prevError, items, minLoadedIndex } = storeToRefs(nodesStore)
 const { loadNext, loadPrev } = nodesStore
 
 const mainItems = computed(() =>
@@ -27,7 +28,7 @@ const scrollContainer = useTemplateRef('scrollContainer')
 const topSentinel = useTemplateRef('topSentinel')
 const bottomSentinel = useTemplateRef('bottomSentinel')
 
-const { runAnchored } = useScrollAnchoredPrepend(scrollContainer)
+useScrollAnchoredPrepend(scrollContainer, minLoadedIndex)
 const { vTourNode } = useTourMediator()
 useGuidedTour(scrollContainer)
 useNodeRouter()
@@ -41,10 +42,9 @@ const asideService = useAsideService()
 // it, which never fires a new "intersecting" notification for the top
 // sentinel since it was already intersecting. Re-checking both directions
 // after every load is what actually surfaces that. The isFilling guard stops
-// the two observer callbacks from racing each other into overlapping loops
-// (which would otherwise busy-spin: a second loop's load() call returns
-// instantly while the first is still in flight, since the store blocks the
-// real fetch, and nothing has changed yet to end the loop).
+// the two observer callbacks from running overlapping loops. Loads the guided
+// tour starts concurrently are joined by the store (single-flight), and
+// prepends are scroll-anchored by useScrollAnchoredPrepend whoever made them.
 let isFilling = false
 
 async function fillSentinels() {
@@ -63,12 +63,13 @@ async function fillSentinels() {
         hasPrev.value &&
         isWithinRootBounds(topSentinel.value, scrollContainer.value, SENTINEL_MARGIN)
       ) {
-        await runAnchored(loadPrev)
+        await loadPrev()
         if (prevError.value) break
       } else {
         break
       }
 
+      // Re-measure sentinels against the freshly rendered page.
       await nextTick()
     }
   } finally {
@@ -76,15 +77,13 @@ async function fillSentinels() {
   }
 }
 
-useIntersectionObserver(bottomSentinel, (entry) => entry.isIntersecting && fillSentinels(), {
-  root: scrollContainer,
-  rootMargin: `${SENTINEL_MARGIN}px`,
-})
-
-useIntersectionObserver(topSentinel, (entry) => entry.isIntersecting && fillSentinels(), {
-  root: scrollContainer,
-  rootMargin: `${SENTINEL_MARGIN}px`,
-})
+// One observer for both sentinels - fillSentinels() re-checks each direction
+// itself. VueUse's observer re-attaches if either element is ever recreated.
+useIntersectionObserver(
+  [topSentinel, bottomSentinel],
+  (entries) => entries.some((entry) => entry.isIntersecting) && fillSentinels(),
+  { root: scrollContainer, rootMargin: `${SENTINEL_MARGIN}px` },
+)
 </script>
 
 <template>

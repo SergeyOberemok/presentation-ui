@@ -38,13 +38,18 @@ Single route `/` → `src/views/Main.vue`: `InfiniteNodeFeed` (main column) + `A
 
 ### Node type → rendering (the central extension point)
 
-`src/factories/nodeFactory.js` — `resolveNodeDescriptor(node)` returns `{ component, props, destination }`.
-Resolvers are keyed by the **namespace** of `node.type` (the part before `:`); unknown namespaces fall back
-to `text`. Each resolver picks the component + props and a `defaultDestination`, used when the backend
-doesn't send `destination`:
+Two layers, both keyed by the **namespace** of `node.type` (the part before `:`):
 
-- `text` → `TextNode`, destination `main`.
-- `file` → `SlideTextStream` with `{ filename: node.value, index, autoStart }`. `file:json` goes to `main` (inline code slide); every other `file:*` goes to `chat` (aside panel). `autoStart` is true only for `main`: inline slides stream their first chunk when the tour reaches them, while aside slides open empty and the first ArrowRight starts the stream.
+- `src/factories/nodeDestination.js` — `resolveDestination(node)`: where a node is shown, `main` (inline
+  feed) or `chat` (aside). Pure, with no component imports, so the tour, the router and the feed share one
+  rule. `node.destination` wins when present; otherwise `text` → `main`, `file:json` → `main` (inline code
+  slide), every other `file:*` → `chat`, unknown → `main`.
+- `src/factories/nodeFactory.js` — `resolveNodeDescriptor(node)` returns `{ component, props, destination }`;
+  unknown namespaces fall back to the `text` resolver.
+  - `text` → `TextNode`.
+  - `file` → `SlideTextStream` with `{ filename: node.value, index, autoStart }`. `autoStart` is true only
+    for `main`: inline slides stream their first chunk when the tour reaches them, while aside slides open
+    empty and the first ArrowRight starts the stream.
 
 Within a file slide, the **extension** of `filename` picks the renderer via
 `src/components/slides/renderers/index.js` (`resolveSlideRenderer`): `md` → `MarkdownRenderer`;
@@ -52,52 +57,73 @@ Within a file slide, the **extension** of `filename` picks the renderer via
 take `{ text, filename }`. Keep extension-specific decisions in the renderer registry, not in the node
 factory.
 
-To add a new node type: add a resolver to `TYPE_RESOLVERS` (and a component). To support a new file
+To add a new node type: add a resolver to `TYPE_RESOLVERS` (and a component), plus an entry in
+`DEFAULT_DESTINATIONS` if it shouldn't default to `main`. Code that only needs the destination calls
+`resolveDestination`, not the factory. To support a new file
 extension: register a renderer (and, for code, its highlight.js language in `CodeRenderer.vue`). Any HTML
 produced from content must go through `DOMPurify.sanitize` before `v-html`.
 
 ### Data loading
 
-- `src/stores/nodes.js` — bidirectional paginated store. Assigns each item a global `index`
-  (`(page-1)*page_size + i`), tracks `minPage`/`maxPage`, exposes `loadNext`/`loadPrev`, `itemsByIndex`,
+- `src/stores/nodes.js` — bidirectional paginated store that bootstraps on page 1. Assigns each item a
+  global `index` (`(page-1)*page_size + i`), tracks `minPage`/`maxPage`, exposes `itemsByIndex`,
   `min/maxLoadedIndex`. Nodes are never evicted.
-- `InfiniteNodeFeed.vue` renders only `destination === 'main'` items and fills via top/bottom sentinels
-  (`useIntersectionObserver` + `isWithinRootBounds` polling in a single guarded loop). Prepends go through
-  `useScrollAnchoredPrepend` so content doesn't jump.
+  - `loadNext`/`loadPrev` are single-flight (`src/utils/singleFlight.js`): a concurrent call joins the
+    in-flight request. Don't swap this for an early-return "already loading" guard. Callers that loop
+    until data appears would spin on resolved promises and freeze the tab.
+  - `ensureLoaded(index)` loads pages toward an index until its data exists. It resolves to the index to
+    land on, clamped to the nearest loaded index at the data's edge or after an error, or `null` if
+    nothing loaded. It is the only "load until" loop for navigation and knows nothing about the DOM.
+- `InfiniteNodeFeed.vue` renders only `main` items and fills via top/bottom sentinels (VueUse
+  `useIntersectionObserver` plus `isWithinRootBounds` polling, in a single guarded loop).
+- `useScrollAnchoredPrepend(container, minLoadedIndex)` keeps content still when pages are prepended. It
+  reacts to `minLoadedIndex` decreasing (snapshot before render, restore after), so it applies once per
+  prepend whoever triggered it, and callers just call `loadPrev()`.
 
 ### Guided tour (keyboard navigation)
 
 - `src/stores/tour.js` — `currentIndex`, a registry of rendered node elements (`nodeEls`), and
   `activeCapture`.
-- `useGuidedTour` (mounted by the feed) — ArrowRight/ArrowLeft move `currentIndex`, loading pages as needed
-  until the target node's *data* exists (not its DOM element, since `chat` nodes are never rendered
-  inline). Scrolls to the node only if its destination is `main`.
+- `useGuidedTour` (mounted by the feed) — ArrowRight/ArrowLeft move `currentIndex` via
+  `nodesStore.ensureLoaded`, which waits for data rather than a DOM element because `chat` nodes are never
+  rendered inline. It then waits a tick and scrolls to the node only if its destination is `main`.
 - `useTourMediator` — `v-tour-node` directive registering feed `<li>`s into `nodeEls`.
 - `useNodeRouter` — watches the current node: opens `chat` nodes in the aside, closes the aside for `main`
   nodes.
-- `useTourCapture` — lets a node component temporarily take over the arrow keys
-  (`capture({ onNext, onPrev })` / `release()`), token-based so a stale release can't clobber a newer
-  capture. ArrowLeft with no `onPrev` (or `onPrev` returning falsy) hands control back to the tour.
+- `useTourCapture` — lets a node component temporarily take over the arrow keys. Captures are
+  token-based, so a stale release can't clobber a newer capture. If `onNext` returns exactly `false`
+  (nothing left), the capture is released and the tour advances on the same keypress. ArrowLeft with no
+  `onPrev`, or with `onPrev` returning falsy, hands control back to the tour.
+  - Components should use `useCaptureWhile(source, handlers)` instead of calling `capture()`/`release()`
+    by hand. It captures while `source` is truthy, re-captures when it changes to another truthy key, and
+    releases when it turns falsy or the scope is disposed.
 
 ### Streamed file slides
 
-- `useSlideTextStream(filename)` wraps `useEventSource` (no auto-reconnect, not immediate). The backend
-  streams one chunk per request; `fetchNextChunk()` starts the stream, advances to the next chunk after a
-  `done`, or retries a failed chunk. Exposes `text`, `isStreaming`, `isDone`, `hasFailed`, `started`, etc.
-  Resets when `filename` changes.
-- `SlideTextStream.vue` captures the arrow keys only while `index === currentIndex` (main-feed nodes are
-  mounted well before the tour reaches them), so ArrowRight reveals the next chunk; it releases when the
-  file is fully streamed, when the tour moves away, or on unmount. The aside reuses the same instance
-  across consecutive file nodes, hence it also watches `filename`.
+- `useSlideTextStream(filename)` wraps `useEventSource` with auto-reconnect, immediate and autoConnect all
+  off, so only `fetchNextChunk()` opens connections. The backend streams one chunk per request.
+  `fetchNextChunk()` starts the stream, advances to the next chunk after a `done`, or retries a failed
+  chunk; it returns `false` once the file is done. The stream resets when `filename` changes.
+- The stream's state is a single `phase` (`idle | streaming | chunk-done | failed | done`), driven by the
+  pure `transition()` in `src/composables/slideStreamPhase.js`. `started`, `isStreaming`, `isDone` and
+  `hasFailed` are derived from `phase`, not from `useEventSource`'s `status`, which already reads
+  `CONNECTING` before anything is opened. New stream states or events go in the transition table and its
+  spec.
+- `SlideTextStream.vue` holds the arrow keys via `useCaptureWhile` while `index === currentIndex` and the
+  file isn't done, so ArrowRight reveals the next chunk. Main-feed nodes are mounted well before the tour
+  reaches them, hence the `currentIndex` check.
 
 ### Aside panel
 
-- `src/stores/aside.js` — `isOpen`, `activeComponent` (shallowRef), `activeProps`; `open/close/toggle`.
-  `close()` clears the component after a 300ms timer (matching the slide-out transition); `open()` cancels
-  any pending clear.
+- `src/stores/aside.js` — `isOpen`, `activeComponent` (shallowRef), `activeProps`, `activeKey`;
+  `open/close/toggle`.
+  - `close()` clears the component after `ASIDE_TRANSITION_MS`, the same constant that drives the panel's
+    CSS transition.
+  - `open()` cancels any pending clear and bumps `activeKey`. `activeKey` is the rendered component's
+    `:key`, so every opened node gets a fresh instance.
 - Callers use the `useAsideService()` façade rather than the store directly.
 - `AsidePanel.vue` — push layout (`w-1/3`) on `lg+`, overlay drawer with backdrop below `lg`; Escape
-  closes. Clicking a feed item opens `NodeDetailPanel`.
+  closes. Both layouts render the shared `AsidePanelContent.vue` (header and body). Clicking a feed item opens `NodeDetailPanel`.
 
 ## Structure and conventions
 
@@ -106,8 +132,8 @@ produced from content must go through `DOMPurify.sanitize` before `v-html`.
 - Pinia stores in `src/stores/` use the setup-function style: `ref`/`computed` inside
   `defineStore(name, () => {...})`, returning the public state/actions. `counter.js` is leftover
   scaffolding.
-- Reusable logic lives in `src/composables/`; API calls in `src/api/`; type-based component resolution in
-  `src/factories/`.
+- Reusable logic lives in `src/composables/`, API calls in `src/api/`, type-based resolution in
+  `src/factories/`, and framework-free helpers in `src/utils/`.
 - Comments explain *why* (edge cases, race conditions, backend quirks) — keep that style when changing
   subtle logic.
 - Unit tests live alongside features in `__tests__/` directories (e.g. `src/stores/__tests__/`,

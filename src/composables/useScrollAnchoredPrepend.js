@@ -1,21 +1,37 @@
-import { nextTick, toValue } from 'vue'
+import { toValue, watch } from 'vue'
 
-export function useScrollAnchoredPrepend(containerRef) {
-  async function runAnchored(asyncFn) {
-    const container = toValue(containerRef)
-    if (!container) {
-      await asyncFn()
-      return
-    }
+// Keeps already-rendered content visually still when items are prepended
+// above it, by shifting scrollTop by however much the content grew.
+//
+// Driven by the data - `firstIndex` (the lowest loaded index) decreasing -
+// rather than by wrapping each loadPrev() call, so it applies no matter who
+// triggered the prepend (the feed's top sentinel or the guided tour), and
+// exactly once even when both raced into the same joined request.
+//
+// The "pre" watcher runs before the component re-renders, so it measures the
+// old layout; the "post" watcher runs after the DOM is patched.
+export function useScrollAnchoredPrepend(containerRef, firstIndex) {
+  let snapshot = null
 
-    const previousScrollTop = container.scrollTop
-    const previousScrollHeight = container.scrollHeight
+  watch(
+    () => toValue(firstIndex),
+    (next, prev) => {
+      const container = toValue(containerRef)
+      // prev == null is the initial load: nothing on screen to anchor yet.
+      if (!container || prev == null || next == null || next >= prev) return
+      snapshot = { scrollTop: container.scrollTop, scrollHeight: container.scrollHeight }
+    },
+    { flush: 'pre' },
+  )
 
-    await asyncFn()
-    await nextTick()
-
-    container.scrollTop = previousScrollTop + (container.scrollHeight - previousScrollHeight)
-  }
-
-  return { runAnchored }
+  watch(
+    () => toValue(firstIndex),
+    () => {
+      const container = toValue(containerRef)
+      if (!snapshot || !container) return
+      container.scrollTop = snapshot.scrollTop + (container.scrollHeight - snapshot.scrollHeight)
+      snapshot = null
+    },
+    { flush: 'post' },
+  )
 }

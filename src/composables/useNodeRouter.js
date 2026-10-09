@@ -4,6 +4,7 @@ import { useTourStore } from '@/stores/tour'
 import { useNodesStore } from '@/stores/nodes'
 import { useAsideService } from '@/composables/useAsideService'
 import { resolveNodeDescriptor } from '@/factories/nodeFactory'
+import { CHAT, resolveDestination } from '@/factories/nodeDestination'
 
 // Applies whatever node the guided tour currently points at to its
 // destination. "main" nodes are already rendered inline by the feed's v-for,
@@ -22,9 +23,9 @@ export function useNodeRouter() {
     (node) => {
       if (!node) return
 
-      const descriptor = resolveNodeDescriptor(node)
-      if (descriptor.destination === 'chat') {
-        asideService.open(descriptor.component, descriptor.props)
+      if (resolveDestination(node) === CHAT) {
+        const { component, props } = resolveNodeDescriptor(node)
+        asideService.open(component, props)
       } else {
         asideService.close()
       }

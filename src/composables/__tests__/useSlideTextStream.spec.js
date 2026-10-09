@@ -101,16 +101,43 @@ describe('useSlideTextStream', () => {
     expect(text.value).toBe('---\n---')
   })
 
-  it('marks the stream not-streaming once status becomes CLOSED', async () => {
+  it('is not streaming before the first fetch, even though useEventSource reports CONNECTING', () => {
+    const { isStreaming, started } = useSlideTextStream('a.md')
+
+    expect(es.status.value).toBe('CONNECTING')
+    expect(isStreaming.value).toBe(false)
+    expect(started.value).toBe(false)
+  })
+
+  it('stops streaming once the connection fails', async () => {
     const { fetchNextChunk, isStreaming } = useSlideTextStream('a.md')
     fetchNextChunk()
-
     expect(isStreaming.value).toBe(true)
 
-    es.status.value = 'CLOSED'
+    es.error.value = new Event('error')
     await nextTick()
 
     expect(isStreaming.value).toBe(false)
+  })
+
+  it('ignores a repeated fetchNextChunk while a chunk is still streaming', () => {
+    const { fetchNextChunk } = useSlideTextStream('a.md')
+    fetchNextChunk()
+
+    expect(fetchNextChunk()).toBe(true) // still "handled", so the tour doesn't advance
+    expect(es.open).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns to idle (and can start again) after the filename changes mid-stream', async () => {
+    const filename = ref('a.md')
+    const { fetchNextChunk, phase } = useSlideTextStream(filename)
+    fetchNextChunk()
+
+    filename.value = 'b.md'
+    await nextTick()
+
+    expect(phase.value).toBe('idle')
+    expect(es.close).toHaveBeenCalled()
   })
 
   it('resets accumulated lines when the filename changes', async () => {

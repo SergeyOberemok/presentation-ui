@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { effectScope, nextTick, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { useTourStore } from '@/stores/tour'
-import { useTourCapture } from '../useTourCapture'
+import { useCaptureWhile, useTourCapture } from '../useTourCapture'
 
 describe('useTourCapture', () => {
   beforeEach(() => {
@@ -107,5 +108,76 @@ describe('useTourCapture', () => {
 
     expect(await handleNext()).toBe(false)
     expect(tourStore.activeCapture).toBeNull()
+  })
+})
+
+describe('useCaptureWhile', () => {
+  let tourStore
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    tourStore = useTourStore()
+  })
+
+  function run(source, handlers) {
+    const scope = effectScope()
+    scope.run(() => useCaptureWhile(source, handlers))
+    return scope
+  }
+
+  it('captures immediately when the source starts truthy', () => {
+    const onNext = vi.fn()
+    run(() => 'a', { onNext })
+
+    expect(tourStore.activeCapture.onNext).toBe(onNext)
+  })
+
+  it('does not capture while the source is falsy', () => {
+    run(() => false, { onNext: vi.fn() })
+
+    expect(tourStore.activeCapture).toBeNull()
+  })
+
+  it('captures and releases as the source toggles', async () => {
+    const active = ref(false)
+    run(active, { onNext: vi.fn() })
+
+    active.value = 'a'
+    await nextTick()
+    expect(tourStore.activeCapture).not.toBeNull()
+
+    active.value = false
+    await nextTick()
+    expect(tourStore.activeCapture).toBeNull()
+  })
+
+  it('re-captures when the source changes to another truthy key', async () => {
+    // e.g. a reused aside instance moving to the next file after the tour
+    // released the previous one's capture.
+    const key = ref('a')
+    run(key, { onNext: vi.fn() })
+    tourStore.release()
+
+    key.value = 'b'
+    await nextTick()
+
+    expect(tourStore.activeCapture).not.toBeNull()
+  })
+
+  it('releases when its scope is disposed', () => {
+    const scope = run(() => 'a', { onNext: vi.fn() })
+
+    scope.stop()
+
+    expect(tourStore.activeCapture).toBeNull()
+  })
+
+  it('does not release a newer capture taken by someone else on dispose', () => {
+    const scope = run(() => 'a', { onNext: vi.fn() })
+    useTourCapture().capture({ onNext: vi.fn() })
+
+    scope.stop()
+
+    expect(tourStore.activeCapture).not.toBeNull()
   })
 })

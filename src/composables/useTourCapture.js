@@ -1,3 +1,4 @@
+import { onScopeDispose, toValue, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTourStore } from '@/stores/tour'
 
@@ -68,4 +69,27 @@ export function useTourCapture() {
   }
 
   return { capture, release, handleNext, handlePrev, currentIndex }
+}
+
+// Declarative capture for node components: holds the arrow keys while
+// `source` is truthy and hands them back when it turns falsy or the owning
+// scope is disposed (e.g. unmount). Prefer this over calling capture()/
+// release() by hand - wiring those to the right watchers and lifecycle hooks
+// is where captures got stuck before (a finished slide re-capturing on
+// revisit, never to be released).
+//
+// `source` should return something that identifies *what* is being captured
+// (e.g. the filename), not just `true`: a change to another truthy value
+// re-captures, which a component reused across nodes (the aside panel) needs
+// because the previous node's capture may have been released in between.
+export function useCaptureWhile(source, handlers) {
+  const { capture, release } = useTourCapture()
+
+  watch(
+    () => toValue(source),
+    (key) => (key ? capture(handlers) : release()),
+    { immediate: true },
+  )
+
+  onScopeDispose(release)
 }

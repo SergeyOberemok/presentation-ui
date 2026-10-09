@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchNodesPage } from '@/api/nodes'
+import { singleFlight } from '@/utils/singleFlight'
 
 export const useNodesStore = defineStore('nodes', () => {
   const items = ref([])
@@ -38,33 +39,11 @@ export const useNodesStore = defineStore('nodes', () => {
     totalPages.value = data.total_pages
   }
 
-  // A call made while a load is already in flight joins that request instead
-  // of returning immediately: callers that loop until data shows up (e.g.
-  // useGuidedTour.goTo, racing InfiniteNodeFeed's sentinels) would otherwise
-  // spin on resolved promises - microtasks only - starving the very fetch
-  // they're waiting for and freezing the tab.
-  let nextRequest = null
-  let prevRequest = null
-
-  function loadNext() {
-    if (nextRequest) return nextRequest
-    if (!hasNext.value) return Promise.resolve()
-    nextRequest = doLoadNext().finally(() => {
-      nextRequest = null
-    })
-    return nextRequest
-  }
-
-  function loadPrev() {
-    if (prevRequest) return prevRequest
-    if (!hasPrev.value) return Promise.resolve()
-    prevRequest = doLoadPrev().finally(() => {
-      prevRequest = null
-    })
-    return prevRequest
-  }
-
-  async function doLoadNext() {
+  // Single-flight: a call made while a load is already in flight joins that
+  // request - see singleFlight() for why returning early would freeze callers
+  // that loop until data shows up (ensureLoaded, InfiniteNodeFeed's sentinels).
+  const loadNext = singleFlight(async () => {
+    if (!hasNext.value) return
     isLoadingNext.value = true
 
     try {
@@ -84,9 +63,10 @@ export const useNodesStore = defineStore('nodes', () => {
     } finally {
       isLoadingNext.value = false
     }
-  }
+  })
 
-  async function doLoadPrev() {
+  const loadPrev = singleFlight(async () => {
+    if (!hasPrev.value) return
     isLoadingPrev.value = true
 
     try {
@@ -101,6 +81,24 @@ export const useNodesStore = defineStore('nodes', () => {
     } finally {
       isLoadingPrev.value = false
     }
+  })
+
+  // Loads pages toward `index` until its data is present, or that direction
+  // runs out (no more pages, or a load failed). Waits for the node's *data*,
+  // not a DOM element - "chat" nodes are never rendered inline. Resolves to
+  // the index to land on: `index` itself, otherwise the nearest loaded index
+  // in that direction (null if nothing could be loaded at all).
+  async function ensureLoaded(index) {
+    const forward = maxLoadedIndex.value === null || index > maxLoadedIndex.value
+
+    while (!itemsByIndex.value.has(index)) {
+      if (!(forward ? hasNext.value : hasPrev.value)) break
+      await (forward ? loadNext() : loadPrev())
+      if (forward ? nextError.value : prevError.value) break
+    }
+
+    if (itemsByIndex.value.has(index)) return index
+    return forward ? maxLoadedIndex.value : minLoadedIndex.value
   }
 
   return {
@@ -119,5 +117,6 @@ export const useNodesStore = defineStore('nodes', () => {
     maxLoadedIndex,
     loadNext,
     loadPrev,
+    ensureLoaded,
   }
 })

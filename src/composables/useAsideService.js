@@ -9,12 +9,12 @@ import { useAsideStore } from '@/stores/aside'
  * that is itself invoked from setup() — calling outside Vue's setup context
  * will throw "getActivePinia was called with no active Pinia".
  *
- * @returns {{ isOpen, activeComponent, activeProps, open, close, toggle }}
+ * @returns {{ isOpen, activeComponent, activeProps, activeKey, open, close, toggle }}
  */
 export function useAsideService() {
   const store = useAsideStore()
-  const { isOpen, activeComponent, activeProps } = storeToRefs(store)
+  const { isOpen, activeComponent, activeProps, activeKey } = storeToRefs(store)
   const { open, close, toggle } = store
 
-  return { isOpen, activeComponent, activeProps, open, close, toggle }
+  return { isOpen, activeComponent, activeProps, activeKey, open, close, toggle }
 }

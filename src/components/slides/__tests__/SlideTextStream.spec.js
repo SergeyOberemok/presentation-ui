@@ -1,26 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useTourStore } from '@/stores/tour'
 
 vi.mock('@/composables/useSlideTextStream', () => ({
   useSlideTextStream: vi.fn(),
 }))
 
-vi.mock('@/composables/useTourCapture', () => ({
-  useTourCapture: vi.fn(),
-}))
-
 import { useSlideTextStream } from '@/composables/useSlideTextStream'
-import { useTourCapture } from '@/composables/useTourCapture'
 import SlideTextStream from '../SlideTextStream.vue'
 
+// Runs against the real tour store (rather than a mocked useTourCapture), so
+// these assert what the guided tour actually sees: whether ArrowRight is
+// currently routed to this slide.
 describe('SlideTextStream', () => {
   let stream
-  let capture
-  let release
-  let currentIndex
+  let tourStore
 
   beforeEach(() => {
+    setActivePinia(createPinia())
+    tourStore = useTourStore()
+
     stream = {
       text: ref(''),
       isStreaming: ref(false),
@@ -30,113 +31,102 @@ describe('SlideTextStream', () => {
       fetchNextChunk: vi.fn(),
     }
     useSlideTextStream.mockReturnValue(stream)
-
-    capture = vi.fn()
-    release = vi.fn()
-    currentIndex = ref(0)
-    useTourCapture.mockReturnValue({ capture, release, currentIndex })
   })
+
+  const capturedNext = () => tourStore.activeCapture?.onNext
 
   it('captures the tour and starts the stream when mounted as the current node', () => {
     mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
 
-    expect(capture).toHaveBeenCalledWith({ onNext: stream.fetchNextChunk })
+    expect(capturedNext()).toBe(stream.fetchNextChunk)
     expect(stream.fetchNextChunk).toHaveBeenCalledTimes(1)
   })
 
   it('does not capture or fetch when mounted ahead of the tour reaching it', () => {
-    currentIndex.value = 0
-
     mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
 
-    expect(capture).not.toHaveBeenCalled()
+    expect(tourStore.activeCapture).toBeNull()
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
   })
 
   it('captures and fetches once the tour reaches this node', async () => {
-    currentIndex.value = 0
-    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
+    mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
 
-    currentIndex.value = 1
-    await wrapper.vm.$nextTick()
+    tourStore.currentIndex = 1
+    await nextTick()
 
-    expect(capture).toHaveBeenCalledWith({ onNext: stream.fetchNextChunk })
+    expect(capturedNext()).toBe(stream.fetchNextChunk)
     expect(stream.fetchNextChunk).toHaveBeenCalledTimes(1)
   })
 
   it('does not re-fetch if the stream had already started when it becomes current again', async () => {
     stream.started.value = true
-    currentIndex.value = 0
-    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
+    mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
 
-    currentIndex.value = 1
-    await wrapper.vm.$nextTick()
+    tourStore.currentIndex = 1
+    await nextTick()
 
-    expect(capture).toHaveBeenCalledWith({ onNext: stream.fetchNextChunk })
+    expect(capturedNext()).toBe(stream.fetchNextChunk)
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
   })
 
   it('releases when the tour moves past this node without unmounting it', async () => {
-    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
-    release.mockClear()
+    mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
 
-    currentIndex.value = 1
-    await wrapper.vm.$nextTick()
+    tourStore.currentIndex = 1
+    await nextTick()
 
-    expect(release).toHaveBeenCalledTimes(1)
+    expect(tourStore.activeCapture).toBeNull()
   })
 
   it('re-captures when the filename changes on a reused instance', async () => {
-    // Mirrors AsidePanel.vue reusing the same mounted instance across
-    // consecutive file nodes - only `filename`/`index` change, no remount.
+    // AsidePanel.vue remounts per node now, but an instance reused across
+    // nodes (only `filename`/`index` change) must still capture for the new one
+    // once the previous capture was handed back.
     const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
-    capture.mockClear()
+    tourStore.release()
 
-    currentIndex.value = 1
+    tourStore.currentIndex = 1
     await wrapper.setProps({ filename: 'b.txt', index: 1 })
 
-    expect(capture).toHaveBeenCalledWith({ onNext: stream.fetchNextChunk })
+    expect(capturedNext()).toBe(stream.fetchNextChunk)
   })
 
   it('releases once the stream reports done', async () => {
-    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
-    release.mockClear()
+    mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
 
     stream.isDone.value = true
-    await wrapper.vm.$nextTick()
+    await nextTick()
 
-    expect(release).toHaveBeenCalledTimes(1)
+    expect(tourStore.activeCapture).toBeNull()
   })
 
   it('releases on unmount as a safety net, even if the stream never finished', () => {
     const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
-    release.mockClear()
 
     wrapper.unmount()
 
-    expect(release).toHaveBeenCalledTimes(1)
+    expect(tourStore.activeCapture).toBeNull()
   })
 
   it('does not re-capture a fully streamed slide when the tour comes back to it', async () => {
-    // Main-feed instances survive the tour moving away, so isDone stays true
-    // and its watcher never fires again to release a fresh capture.
-    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
+    // Main-feed instances survive the tour moving away, so isDone stays true.
+    mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
     stream.started.value = true
     stream.isDone.value = true
-    await wrapper.vm.$nextTick()
-    capture.mockClear()
+    await nextTick()
 
-    currentIndex.value = 1
-    await wrapper.vm.$nextTick()
+    tourStore.currentIndex = 1
+    await nextTick()
 
-    expect(capture).not.toHaveBeenCalled()
+    expect(tourStore.activeCapture).toBeNull()
   })
 
   it('with autoStart false, captures but waits for ArrowRight (onNext) to start streaming', () => {
     // Aside-panel slides open empty; the first ArrowRight fetches chunk 0.
     mount(SlideTextStream, { props: { filename: 'a.md', index: 0, autoStart: false } })
 
-    expect(capture).toHaveBeenCalledWith({ onNext: stream.fetchNextChunk })
+    expect(capturedNext()).toBe(stream.fetchNextChunk)
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
   })
 })

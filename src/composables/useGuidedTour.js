@@ -3,9 +3,8 @@ import { storeToRefs } from 'pinia'
 import { useScroll, onKeyStroke } from '@vueuse/core'
 import { useTourStore } from '@/stores/tour'
 import { useNodesStore } from '@/stores/nodes'
-import { useScrollAnchoredPrepend } from '@/composables/useScrollAnchoredPrepend'
 import { useTourCapture } from '@/composables/useTourCapture'
-import { resolveNodeDescriptor } from '@/factories/nodeFactory'
+import { MAIN, resolveDestination } from '@/factories/nodeDestination'
 
 function isEditableTarget(target) {
   if (!target) return false
@@ -14,23 +13,21 @@ function isEditableTarget(target) {
 }
 
 // Keyboard-driven guided tour: ArrowRight/ArrowLeft step through node
-// indices, loading more pages from the nodes store when the target isn't
-// loaded yet - it keeps requesting until the real end/start of the data, not
-// just the currently rendered edge. Only "main"-destination nodes are
-// scrolled into view (they're the only ones with a DOM element pooled by
-// useTourMediator); other destinations are left for useNodeRouter to apply.
+// indices, asking the nodes store to load pages until the target's data
+// exists - up to the real end/start of the data, not just the currently
+// rendered edge. Only "main"-destination nodes are scrolled into view
+// (they're the only ones with a DOM element pooled by useTourMediator); other
+// destinations are left for useNodeRouter to apply. Scroll anchoring for
+// prepended pages is the feed's job (useScrollAnchoredPrepend), not this one's.
 export function useGuidedTour(containerRef) {
   const tourStore = useTourStore()
   const { currentIndex, nodeEls } = storeToRefs(tourStore)
   const { handleNext, handlePrev } = useTourCapture()
 
   const nodesStore = useNodesStore()
-  const { hasNext, hasPrev, nextError, prevError, itemsByIndex, minLoadedIndex, maxLoadedIndex } =
-    storeToRefs(nodesStore)
-  const { loadNext, loadPrev } = nodesStore
+  const { itemsByIndex } = storeToRefs(nodesStore)
 
   const { y } = useScroll(containerRef, { behavior: 'smooth' })
-  const { runAnchored } = useScrollAnchoredPrepend(containerRef)
 
   let isNavigating = false
 
@@ -39,37 +36,14 @@ export function useGuidedTour(containerRef) {
     isNavigating = true
 
     try {
-      let index = Math.max(0, targetIndex)
-      const forward = index > currentIndex.value
+      const index = (await nodesStore.ensureLoaded(Math.max(0, targetIndex))) ?? currentIndex.value
 
-      // Waits for the node's *data* to be loaded, not for a DOM element -
-      // some nodes (e.g. destination: "chat") are never rendered inline here,
-      // so they'd never get a nodeEls entry.
-      while (!itemsByIndex.value.has(index)) {
-        if (forward && hasNext.value) {
-          await loadNext()
-          if (nextError.value) {
-            index = maxLoadedIndex.value ?? currentIndex.value
-            break
-          }
-        } else if (!forward && hasPrev.value) {
-          // Routed through runAnchored (same helper InfiniteNodeFeed's own
-          // sentinel loop uses) so prepending a page doesn't visually shift
-          // already-rendered content before the tour's own scroll lands.
-          await runAnchored(loadPrev)
-          if (prevError.value) {
-            index = minLoadedIndex.value ?? currentIndex.value
-            break
-          }
-        } else {
-          index = (forward ? maxLoadedIndex.value : minLoadedIndex.value) ?? currentIndex.value
-          break
-        }
-        await nextTick()
-      }
+      // Let the feed render (and scroll-anchor) any page just loaded, so the
+      // target's element exists and its position is final before measuring.
+      await nextTick()
 
       const node = itemsByIndex.value.get(index)
-      if (node && resolveNodeDescriptor(node).destination === 'main') {
+      if (node && resolveDestination(node) === MAIN) {
         const el = nodeEls.value.get(index)
         const container = toValue(containerRef)
         if (el && container) {
