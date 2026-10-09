@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "presentation-api": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-openapi-schema-explorer@latest",
+        "http://localhost:8000/openapi.json",
+        "--output-format",
+        "yaml"
+      ],
+      "env": {}
+    }
+  }
+}
