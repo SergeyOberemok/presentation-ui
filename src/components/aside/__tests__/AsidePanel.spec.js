@@ -46,8 +46,8 @@ describe('AsidePanel', () => {
   })
 
   it('mounts a fresh instance for every open(), even of the same component', async () => {
-    // Each node opened in the aside must start from clean state rather than
-    // inherit the previous node's (e.g. a finished stream).
+    // Each slide opened in the aside must start from clean state rather than
+    // inherit the previous slide's (e.g. a finished stream).
     mount(AsidePanel)
 
     store.open(Probe, { label: 'a' })

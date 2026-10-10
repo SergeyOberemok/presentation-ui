@@ -10,7 +10,7 @@ export const useAsideStore = defineStore('aside', () => {
   const activeComponent = shallowRef(null)
   const activeProps = ref({})
   // Bumped on every open(), and used as the rendered component's :key: each
-  // opened node gets a fresh instance instead of the previous node's one
+  // opened slide gets a fresh instance instead of the previous slide's one
   // being patched with new props (and carrying over its state - e.g. a
   // finished stream - until every watcher has caught up).
   const activeKey = ref(0)

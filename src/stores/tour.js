@@ -3,37 +3,37 @@ import { defineStore } from 'pinia'
 
 export const useTourStore = defineStore('tour', () => {
   const currentIndex = ref(0)
-  const nodeEls = reactive(new Map())
+  const slideEls = reactive(new Map())
 
-  // Lets a dynamic node component (e.g. SlideTextStream) temporarily take
+  // Lets a dynamic slide component (e.g. SlideTextStream) temporarily take
   // over ArrowRight/ArrowLeft from useGuidedTour - see useTourCapture().
   const activeCapture = ref(null) // null | { token, onNext: () => boolean | void, onPrev?: () => boolean }
   let captureSeq = 0
 
   // Avoid Math.min/max(...keys()): this feed never evicts old pages, so
-  // nodeEls can grow large enough over a long session to blow the engine's
+  // slideEls can grow large enough over a long session to blow the engine's
   // max call-argument limit if spread into Math.min/max.apply.
   const knownMinIndex = computed(() => {
     let min = null
-    for (const key of nodeEls.keys()) {
+    for (const key of slideEls.keys()) {
       if (min === null || key < min) min = key
     }
     return min
   })
   const knownMaxIndex = computed(() => {
     let max = null
-    for (const key of nodeEls.keys()) {
+    for (const key of slideEls.keys()) {
       if (max === null || key > max) max = key
     }
     return max
   })
 
-  function registerNode(index, el) {
-    nodeEls.set(index, el)
+  function registerSlide(index, el) {
+    slideEls.set(index, el)
   }
 
-  function unregisterNode(index) {
-    nodeEls.delete(index)
+  function unregisterSlide(index) {
+    slideEls.delete(index)
   }
 
   // Returns a token identifying this capture, so the caller can later
@@ -56,11 +56,11 @@ export const useTourStore = defineStore('tour', () => {
 
   return {
     currentIndex,
-    nodeEls,
+    slideEls,
     knownMinIndex,
     knownMaxIndex,
-    registerNode,
-    unregisterNode,
+    registerSlide,
+    unregisterSlide,
     activeCapture,
     capture,
     release,

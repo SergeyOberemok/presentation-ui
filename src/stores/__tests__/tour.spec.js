@@ -7,7 +7,7 @@ describe('useTourStore', () => {
     setActivePinia(createPinia())
   })
 
-  it('starts at index 0 with no nodes registered', () => {
+  it('starts at index 0 with no slides registered', () => {
     const store = useTourStore()
 
     expect(store.currentIndex).toBe(0)
@@ -15,27 +15,27 @@ describe('useTourStore', () => {
     expect(store.knownMaxIndex).toBeNull()
   })
 
-  it('tracks the known bounds as nodes are registered', () => {
+  it('tracks the known bounds as slides are registered', () => {
     const store = useTourStore()
 
-    store.registerNode(2, {})
-    store.registerNode(0, {})
-    store.registerNode(1, {})
+    store.registerSlide(2, {})
+    store.registerSlide(0, {})
+    store.registerSlide(1, {})
 
     expect(store.knownMinIndex).toBe(0)
     expect(store.knownMaxIndex).toBe(2)
-    expect(store.nodeEls.has(1)).toBe(true)
+    expect(store.slideEls.has(1)).toBe(true)
   })
 
-  it('shrinks the known bounds as nodes are unregistered', () => {
+  it('shrinks the known bounds as slides are unregistered', () => {
     const store = useTourStore()
-    store.registerNode(0, {})
-    store.registerNode(1, {})
+    store.registerSlide(0, {})
+    store.registerSlide(1, {})
 
-    store.unregisterNode(1)
+    store.unregisterSlide(1)
 
     expect(store.knownMaxIndex).toBe(0)
-    expect(store.nodeEls.has(1)).toBe(false)
+    expect(store.slideEls.has(1)).toBe(false)
   })
 
   it('releases unconditionally when called with no token', () => {

@@ -7,13 +7,13 @@ vi.mock('@vueuse/core', () => ({
   onKeyStroke: vi.fn(),
 }))
 
-vi.mock('@/api/nodes', () => ({
-  fetchNodesPage: vi.fn(),
+vi.mock('@/api/slides', () => ({
+  fetchSlidesPage: vi.fn(),
 }))
 
 import { useScroll, onKeyStroke } from '@vueuse/core'
-import { fetchNodesPage } from '@/api/nodes'
-import { useNodesStore } from '@/stores/nodes'
+import { fetchSlidesPage } from '@/api/slides'
+import { useSlidesStore } from '@/stores/slides'
 import { useTourStore } from '@/stores/tour'
 import { useGuidedTour } from '../useGuidedTour'
 
@@ -25,35 +25,35 @@ function fakeContainer() {
   return ref({ scrollTop: 0, scrollHeight: 0, getBoundingClientRect: () => ({ top: 0 }) })
 }
 
-// Runs against the real nodes store with only the HTTP call mocked, so the
+// Runs against the real slides store with only the HTTP call mocked, so the
 // tour's interaction with paging (joining in-flight loads, clamping at the
-// edges, errors) is what's actually under test. One node per page keeps the
+// edges, errors) is what's actually under test. One slide per page keeps the
 // arithmetic obvious: index i lives on page i + 1.
-function apiPage(index, node = {}, totalPages = 5) {
+function apiPage(index, slide = {}, totalPages = 5) {
   return {
     page: index + 1,
     page_size: 1,
     total_items: totalPages,
     total_pages: totalPages,
-    items: [{ type: 'text', value: `n${index}`, ...node }],
+    items: [{ type: 'text', value: `n${index}`, ...slide }],
   }
 }
 
 describe('useGuidedTour', () => {
   let scrollY
-  let nodesStore
+  let slidesStore
   let tourStore
 
   // Seeds loaded data for indices [from..to], as if those pages had been
   // fetched, and registers a DOM element for each (what useTourMediator does
-  // for rendered "main" nodes).
-  function seedLoaded(from, to, { totalPages = 5, nodes = {}, tops = {} } = {}) {
-    const items = []
+  // for rendered "main" slides).
+  function seedLoaded(from, to, { totalPages = 5, overrides = {}, tops = {} } = {}) {
+    const loaded = []
     for (let i = from; i <= to; i++) {
-      items.push({ type: 'text', value: `n${i}`, ...nodes[i], index: i })
-      tourStore.registerNode(i, fakeEl(tops[i] ?? i * 50))
+      loaded.push({ type: 'text', value: `n${i}`, ...overrides[i], index: i })
+      tourStore.registerSlide(i, fakeEl(tops[i] ?? i * 50))
     }
-    nodesStore.$patch({ items, minPage: from + 1, maxPage: to + 1, totalPages })
+    slidesStore.$patch({ slides: loaded, minPage: from + 1, maxPage: to + 1, totalPages })
   }
 
   function keyHandler() {
@@ -66,13 +66,13 @@ describe('useGuidedTour', () => {
 
   beforeEach(() => {
     setActivePinia(createPinia())
-    nodesStore = useNodesStore()
+    slidesStore = useSlidesStore()
     tourStore = useTourStore()
 
     scrollY = ref(0)
     useScroll.mockReturnValue({ y: scrollY })
     onKeyStroke.mockReset()
-    fetchNodesPage.mockReset()
+    fetchSlidesPage.mockReset()
   })
 
   it('registers an ArrowLeft/ArrowRight keyboard handler', () => {
@@ -81,47 +81,47 @@ describe('useGuidedTour', () => {
     expect(onKeyStroke).toHaveBeenCalledWith(['ArrowLeft', 'ArrowRight'], expect.any(Function))
   })
 
-  it('scrolls straight to an already-loaded node without loading more pages', async () => {
+  it('scrolls straight to an already-loaded slide without loading more pages', async () => {
     seedLoaded(0, 1)
 
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     await next()
 
-    expect(fetchNodesPage).not.toHaveBeenCalled()
+    expect(fetchSlidesPage).not.toHaveBeenCalled()
     expect(currentIndex.value).toBe(1)
     expect(scrollY.value).toBe(50)
   })
 
-  it('loads the next page when the target node is not loaded yet', async () => {
+  it('loads the next page when the target slide is not loaded yet', async () => {
     seedLoaded(0, 0)
-    fetchNodesPage.mockResolvedValueOnce(apiPage(1))
+    fetchSlidesPage.mockResolvedValueOnce(apiPage(1))
 
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     await next()
 
-    expect(fetchNodesPage).toHaveBeenCalledExactlyOnceWith(2)
+    expect(fetchSlidesPage).toHaveBeenCalledExactlyOnceWith(2)
     expect(currentIndex.value).toBe(1)
   })
 
-  it('clamps to the last node once there is nothing more to load forward', async () => {
+  it('clamps to the last slide once there is nothing more to load forward', async () => {
     seedLoaded(0, 0, { totalPages: 1 })
 
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     await next()
 
-    expect(fetchNodesPage).not.toHaveBeenCalled()
+    expect(fetchSlidesPage).not.toHaveBeenCalled()
     expect(currentIndex.value).toBe(0)
   })
 
   it('loads the previous page when moving to an unloaded lower index', async () => {
     tourStore.currentIndex = 2
     seedLoaded(2, 2)
-    fetchNodesPage.mockResolvedValueOnce(apiPage(1))
+    fetchSlidesPage.mockResolvedValueOnce(apiPage(1))
 
     const { prev, currentIndex } = useGuidedTour(fakeContainer())
     await prev()
 
-    expect(fetchNodesPage).toHaveBeenCalledExactlyOnceWith(2)
+    expect(fetchSlidesPage).toHaveBeenCalledExactlyOnceWith(2)
     expect(currentIndex.value).toBe(1)
   })
 
@@ -131,30 +131,30 @@ describe('useGuidedTour', () => {
     const { prev, currentIndex } = useGuidedTour(fakeContainer())
     await prev()
 
-    expect(fetchNodesPage).not.toHaveBeenCalled()
+    expect(fetchSlidesPage).not.toHaveBeenCalled()
     expect(currentIndex.value).toBe(0)
   })
 
   it('stays put when loading forward fails', async () => {
     seedLoaded(0, 0)
-    fetchNodesPage.mockRejectedValueOnce(new Error('boom'))
+    fetchSlidesPage.mockRejectedValueOnce(new Error('boom'))
 
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     await next()
 
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     expect(currentIndex.value).toBe(0)
   })
 
   it('stays put when loading backward fails', async () => {
     tourStore.currentIndex = 2
     seedLoaded(2, 2)
-    fetchNodesPage.mockRejectedValueOnce(new Error('boom'))
+    fetchSlidesPage.mockRejectedValueOnce(new Error('boom'))
 
     const { prev, currentIndex } = useGuidedTour(fakeContainer())
     await prev()
 
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     expect(currentIndex.value).toBe(2)
   })
 
@@ -163,15 +163,15 @@ describe('useGuidedTour', () => {
     // the tour both want the next page at the same time.
     seedLoaded(0, 0)
     let resolveFetch
-    fetchNodesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
+    fetchSlidesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
 
-    const feedLoad = nodesStore.loadNext()
+    const feedLoad = slidesStore.loadNext()
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     const navigation = next()
     resolveFetch(apiPage(1))
     await Promise.all([feedLoad, navigation])
 
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     expect(currentIndex.value).toBe(1)
   })
 
@@ -195,8 +195,8 @@ describe('useGuidedTour', () => {
     await vi.waitFor(() => expect(tourStore.currentIndex).toBe(1))
   })
 
-  it('skips scrolling for a non-main destination node, but still advances currentIndex', async () => {
-    seedLoaded(0, 1, { nodes: { 1: { type: 'file:md', destination: 'chat', value: 'f.md' } } })
+  it('skips scrolling for a non-main destination slide, but still advances currentIndex', async () => {
+    seedLoaded(0, 1, { overrides: { 1: { type: 'file:md', destination: 'chat', value: 'f.md' } } })
 
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     await next()
@@ -205,10 +205,10 @@ describe('useGuidedTour', () => {
     expect(scrollY.value).toBe(0)
   })
 
-  it('skips scrolling for a file node with no explicit destination (defaults to chat)', async () => {
-    // Matches the real backend shape today: file nodes arrive as just
+  it('skips scrolling for a file slide with no explicit destination (defaults to chat)', async () => {
+    // Matches the real backend shape today: file slides arrive as just
     // { type, value }, with no destination field at all.
-    seedLoaded(0, 1, { nodes: { 1: { type: 'file:md', value: 'f.md' } } })
+    seedLoaded(0, 1, { overrides: { 1: { type: 'file:md', value: 'f.md' } } })
 
     const { next, currentIndex } = useGuidedTour(fakeContainer())
     await next()
@@ -278,8 +278,8 @@ describe('useGuidedTour', () => {
   it('ignores keys pressed while a navigation is still loading', async () => {
     seedLoaded(0, 0)
     let resolvePage
-    fetchNodesPage.mockReturnValueOnce(new Promise((r) => (resolvePage = r)))
-    const ensureLoaded = vi.spyOn(nodesStore, 'ensureLoaded')
+    fetchSlidesPage.mockReturnValueOnce(new Promise((r) => (resolvePage = r)))
+    const ensureLoaded = vi.spyOn(slidesStore, 'ensureLoaded')
     useGuidedTour(fakeContainer())
 
     const first = press('ArrowRight')
@@ -291,10 +291,10 @@ describe('useGuidedTour', () => {
     expect(ensureLoaded).toHaveBeenCalledTimes(1)
   })
 
-  it('stays on the current node when nothing could be loaded', async () => {
+  it('stays on the current slide when nothing could be loaded', async () => {
     seedLoaded(0, 0)
     tourStore.currentIndex = 0
-    vi.spyOn(nodesStore, 'ensureLoaded').mockResolvedValue(null)
+    vi.spyOn(slidesStore, 'ensureLoaded').mockResolvedValue(null)
     useGuidedTour(fakeContainer())
 
     await press('ArrowRight')

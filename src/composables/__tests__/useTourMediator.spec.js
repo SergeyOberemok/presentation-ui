@@ -5,7 +5,7 @@ import { defineComponent, h, ref, withDirectives } from 'vue'
 import { useTourStore } from '@/stores/tour'
 import { useTourMediator } from '../useTourMediator'
 
-describe('useTourMediator (v-tour-node)', () => {
+describe('useTourMediator (v-tour-slide)', () => {
   let tourStore
 
   beforeEach(() => {
@@ -18,11 +18,11 @@ describe('useTourMediator (v-tour-node)', () => {
     const wrapper = mount(
       defineComponent({
         setup() {
-          const { vTourNode } = useTourMediator()
+          const { vTourSlide } = useTourMediator()
           return () =>
             h(
               'ul',
-              list.value.map((i) => withDirectives(h('li', { key: i }), [[vTourNode, i]])),
+              list.value.map((i) => withDirectives(h('li', { key: i }), [[vTourSlide, i]])),
             )
         },
       }),
@@ -30,21 +30,21 @@ describe('useTourMediator (v-tour-node)', () => {
     return { list, wrapper }
   }
 
-  it('registers each rendered node element under its index', () => {
+  it('registers each rendered slide element under its index', () => {
     const { wrapper } = mountList([3, 4])
 
     const items = wrapper.findAll('li')
-    expect(tourStore.nodeEls.get(3)).toBe(items[0].element)
-    expect(tourStore.nodeEls.get(4)).toBe(items[1].element)
+    expect(tourStore.slideEls.get(3)).toBe(items[0].element)
+    expect(tourStore.slideEls.get(4)).toBe(items[1].element)
   })
 
-  it('registers nodes added later and unregisters removed ones', async () => {
+  it('registers slides added later and unregisters removed ones', async () => {
     const { list, wrapper } = mountList([3, 4])
 
     list.value = [4, 5]
     await wrapper.vm.$nextTick()
 
-    expect([...tourStore.nodeEls.keys()].sort()).toEqual([4, 5])
+    expect([...tourStore.slideEls.keys()].sort()).toEqual([4, 5])
   })
 
   it('unregisters everything on unmount', () => {
@@ -52,16 +52,16 @@ describe('useTourMediator (v-tour-node)', () => {
 
     wrapper.unmount()
 
-    expect(tourStore.nodeEls.size).toBe(0)
+    expect(tourStore.slideEls.size).toBe(0)
   })
 
-  it('moves the registration when a node element is re-bound to another index', async () => {
+  it('moves the registration when a slide element is re-bound to another index', async () => {
     const index = ref(3)
     const wrapper = mount(
       defineComponent({
         setup() {
-          const { vTourNode } = useTourMediator()
-          return () => withDirectives(h('li'), [[vTourNode, index.value]])
+          const { vTourSlide } = useTourMediator()
+          return () => withDirectives(h('li'), [[vTourSlide, index.value]])
         },
       }),
     )
@@ -70,8 +70,8 @@ describe('useTourMediator (v-tour-node)', () => {
     index.value = 7
     await wrapper.vm.$nextTick()
 
-    expect(tourStore.nodeEls.has(3)).toBe(false)
-    expect(tourStore.nodeEls.get(7)).toBe(el)
+    expect(tourStore.slideEls.has(3)).toBe(false)
+    expect(tourStore.slideEls.get(7)).toBe(el)
   })
 
   it('keeps the registration when an update does not change the index', async () => {
@@ -79,8 +79,8 @@ describe('useTourMediator (v-tour-node)', () => {
     const wrapper = mount(
       defineComponent({
         setup() {
-          const { vTourNode } = useTourMediator()
-          return () => withDirectives(h('li', label.value), [[vTourNode, 3]])
+          const { vTourSlide } = useTourMediator()
+          return () => withDirectives(h('li', label.value), [[vTourSlide, 3]])
         },
       }),
     )
@@ -88,6 +88,6 @@ describe('useTourMediator (v-tour-node)', () => {
     label.value = 'b'
     await wrapper.vm.$nextTick()
 
-    expect(tourStore.nodeEls.get(3)).toBe(wrapper.element)
+    expect(tourStore.slideEls.get(3)).toBe(wrapper.element)
   })
 })

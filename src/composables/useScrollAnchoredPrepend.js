@@ -1,6 +1,6 @@
 import { toValue, watch } from 'vue'
 
-// Keeps already-rendered content visually still when items are prepended
+// Keeps already-rendered content visually still when slides are prepended
 // above it, by shifting scrollTop by however much the content grew.
 //
 // Driven by the data - `firstIndex` (the lowest loaded index) decreasing -

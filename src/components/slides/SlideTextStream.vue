@@ -7,11 +7,11 @@ import { resolveSlideRenderer } from '@/components/slides/renderers'
 
 const props = defineProps({
   filename: { type: String, required: true },
-  // The index this node occupies in the tour, used to tell whether the tour
-  // has actually reached this node yet - see the watcher below. Optional
+  // The index this slide occupies in the tour, used to tell whether the tour
+  // has actually reached this slide yet - see the watcher below. Optional
   // because tests may mount this component standalone.
   index: { type: Number, default: null },
-  // Fetch the first chunk as soon as this node becomes current. When false
+  // Fetch the first chunk as soon as this slide becomes current. When false
   // (aside panel), the slide starts empty and the first ArrowRight - routed
   // through the capture below - starts the stream instead.
   autoStart: { type: Boolean, default: true },
@@ -25,9 +25,9 @@ const renderer = computed(() => resolveSlideRenderer(props.filename))
 
 const { currentIndex } = useTourCapture()
 
-// A "chat"-destination node is opened one at a time, so for it mount really
-// does mean current. A "main"-destination node (e.g. file:json) has no such
-// guarantee - the feed mounts every loaded node up front, well ahead of the
+// A "chat"-destination slide is opened one at a time, so for it mount really
+// does mean current. A "main"-destination slide (e.g. file:json) has no such
+// guarantee - the feed mounts every loaded slide up front, well ahead of the
 // tour reaching it - so capturing arrow keys and starting the fetch both
 // have to wait for isCurrent, not mount.
 const isCurrent = computed(() => props.index === currentIndex.value)
@@ -58,11 +58,11 @@ function onPrev() {
   return moved
 }
 
-// Holds the arrow keys while this is the tour's node and there's still
+// Holds the arrow keys while this is the tour's slide and there's still
 // something to stream or a stop to visit. A slide that's fully streamed and
 // walked hands the keys back, including when revisited later, since its
 // stream and cursor state survive. Keyed by index/filename so an instance
-// given a new node's props re-captures for it. The aside remounts per node
+// given a new slide's props re-captures for it. The aside remounts per slide
 // (see the aside store's activeKey), but this stays correct if an instance is
 // ever reused.
 useCaptureWhile(
@@ -87,7 +87,7 @@ watch(
 // 'nearest' scrolls only as far as needed to reveal the last line, and not at
 // all while it's already visible. A short slide the tour just aligned to the
 // top therefore stays put. Lines arrive every few ms, so scrolls are batched
-// to one per frame. Only the tour's current node scrolls, so main-feed slides
+// to one per frame. Only the tour's current slide scrolls, so main-feed slides
 // mounted ahead of the tour never move the feed.
 const streamEnd = useTemplateRef('streamEnd')
 let followFrame = null

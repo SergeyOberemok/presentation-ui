@@ -1,30 +1,23 @@
-import { describe, it, expect } from 'vitest'
-import { buildSlideStreamUrl } from '../slides'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fetchSlidesPage } from '../slides'
 
-describe('buildSlideStreamUrl', () => {
-  it('encodes the filename with no query string when delayMs is omitted', () => {
-    expect(buildSlideStreamUrl('a b.md')).toBe('/slides/a%20b.md')
+describe('fetchSlidesPage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('omits the query string when delayMs is 0', () => {
-    expect(buildSlideStreamUrl('a.md', { delayMs: 0 })).toBe('/slides/a.md')
+  it('requests the given page and resolves to the parsed JSON body', async () => {
+    const body = { page: 2, items: [{ type: 'text', value: 'hi' }] }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(body) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchSlidesPage(2)).resolves.toEqual(body)
+    expect(fetchMock).toHaveBeenCalledWith('/slides/?page=2')
   })
 
-  it('appends delay_ms when delayMs is set', () => {
-    expect(buildSlideStreamUrl('a.md', { delayMs: 25 })).toBe('/slides/a.md?delay_ms=25')
-  })
+  it('throws with the page and status when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))
 
-  it('omits the query string when chunk is 0', () => {
-    expect(buildSlideStreamUrl('a.md', { chunk: 0 })).toBe('/slides/a.md')
-  })
-
-  it('appends chunk when chunk is set', () => {
-    expect(buildSlideStreamUrl('a.md', { chunk: 2 })).toBe('/slides/a.md?chunk=2')
-  })
-
-  it('combines delay_ms and chunk when both are set', () => {
-    expect(buildSlideStreamUrl('a.md', { delayMs: 25, chunk: 2 })).toBe(
-      '/slides/a.md?delay_ms=25&chunk=2',
-    )
+    await expect(fetchSlidesPage(3)).rejects.toThrow('Failed to fetch slides page 3: 500')
   })
 })

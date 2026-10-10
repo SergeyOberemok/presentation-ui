@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '../App.vue'
-import InfiniteNodeFeed from '../components/nodes/InfiniteNodeFeed.vue'
+import InfiniteSlideFeed from '../components/feed/InfiniteSlideFeed.vue'
 
 describe('App', () => {
   it('renders the routed view', async () => {
@@ -28,7 +28,7 @@ describe('App', () => {
     await router.isReady()
     await flushPromises(wrapper)
 
-    expect(wrapper.findComponent(InfiniteNodeFeed).exists()).toBe(true)
+    expect(wrapper.findComponent(InfiniteSlideFeed).exists()).toBe(true)
   })
 })
 

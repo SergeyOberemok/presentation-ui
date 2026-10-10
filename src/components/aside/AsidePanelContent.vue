@@ -4,7 +4,7 @@
 defineProps({
   component: { type: [Object, Function], default: null },
   componentProps: { type: Object, default: () => ({}) },
-  // Forces a fresh component instance per opened node - see aside store.
+  // Forces a fresh component instance per opened slide - see aside store.
   componentKey: { type: [Number, String], default: undefined },
 })
 

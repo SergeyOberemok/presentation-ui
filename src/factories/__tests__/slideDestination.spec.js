@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { CHAT, MAIN, nodeNamespace, resolveDestination } from '../nodeDestination'
+import { CHAT, MAIN, slideNamespace, resolveDestination } from '../slideDestination'
 
-describe('nodeNamespace', () => {
+describe('slideNamespace', () => {
   it('returns the part of the type before ":"', () => {
-    expect(nodeNamespace({ type: 'file:md' })).toBe('file')
-    expect(nodeNamespace({ type: 'text' })).toBe('text')
+    expect(slideNamespace({ type: 'file:md' })).toBe('file')
+    expect(slideNamespace({ type: 'text' })).toBe('text')
   })
 
   it('treats a missing type as text', () => {
-    expect(nodeNamespace({})).toBe('text')
+    expect(slideNamespace({})).toBe('text')
   })
 })
 
@@ -20,8 +20,8 @@ describe('resolveDestination', () => {
     [{ type: 'file:json' }, MAIN],
     [{ type: 'mystery' }, MAIN],
     [{}, MAIN],
-  ])('defaults %o to %s', (node, expected) => {
-    expect(resolveDestination(node)).toBe(expected)
+  ])('defaults %o to %s', (slide, expected) => {
+    expect(resolveDestination(slide)).toBe(expected)
   })
 
   it('prefers an explicit destination over the type default', () => {

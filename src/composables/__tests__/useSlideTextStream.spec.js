@@ -37,21 +37,21 @@ describe('useSlideTextStream', () => {
     useSlideTextStream('a b.md', { delayMs: 0 })
 
     const [urlArg] = useEventSource.mock.calls[0]
-    expect(urlArg.value).toBe('/slides/a%20b.md')
+    expect(urlArg.value).toBe('/slide-resources/a%20b.md/stream')
   })
 
   it('paces server-side delivery with a default per-line delay', () => {
     useSlideTextStream('a.md')
 
     const [urlArg] = useEventSource.mock.calls[0]
-    expect(urlArg.value).toBe('/slides/a.md?delay_ms=10')
+    expect(urlArg.value).toBe('/slide-resources/a.md/stream?delay_ms=10')
   })
 
   it('allows overriding the per-line delay', () => {
     useSlideTextStream('a.md', { delayMs: 200 })
 
     const [urlArg] = useEventSource.mock.calls[0]
-    expect(urlArg.value).toBe('/slides/a.md?delay_ms=200')
+    expect(urlArg.value).toBe('/slide-resources/a.md/stream?delay_ms=200')
   })
 
   it('does not connect until fetchNextChunk is called', () => {
@@ -205,7 +205,7 @@ describe('useSlideTextStream', () => {
       await nextTick()
 
       const [urlArg] = useEventSource.mock.calls[0]
-      expect(urlArg.value).toBe('/slides/a.md?chunk=1')
+      expect(urlArg.value).toBe('/slide-resources/a.md/stream?chunk=1')
       expect(es.open).toHaveBeenCalledTimes(1) // explicit, since autoConnect is off
     })
 
@@ -221,7 +221,7 @@ describe('useSlideTextStream', () => {
       expect(fetchNextChunk()).toBe(false) // lets a tour capture hand control back
 
       const [urlArg] = useEventSource.mock.calls[0]
-      expect(urlArg.value).toBe('/slides/a.md')
+      expect(urlArg.value).toBe('/slide-resources/a.md/stream')
       expect(es.open).not.toHaveBeenCalled()
     })
   })
@@ -273,7 +273,7 @@ describe('useSlideTextStream', () => {
 
       expect(es.open).toHaveBeenCalledTimes(1)
       const [urlArg] = useEventSource.mock.calls[0]
-      expect(urlArg.value).toBe('/slides/a.md')
+      expect(urlArg.value).toBe('/slide-resources/a.md/stream')
     })
   })
 

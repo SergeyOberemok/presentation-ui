@@ -15,7 +15,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/nodes': {
+      '/slide-resources': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },

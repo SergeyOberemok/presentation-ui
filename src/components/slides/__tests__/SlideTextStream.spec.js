@@ -36,7 +36,7 @@ describe('SlideTextStream', () => {
   const capturedNext = () => tourStore.activeCapture?.onNext
   const capturedPrev = () => tourStore.activeCapture?.onPrev
 
-  it('captures the tour and starts the stream when mounted as the current node', () => {
+  it('captures the tour and starts the stream when mounted as the current slide', () => {
     mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
 
     expect(capturedNext()).toBeTypeOf('function')
@@ -50,7 +50,7 @@ describe('SlideTextStream', () => {
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
   })
 
-  it('captures and fetches once the tour reaches this node', async () => {
+  it('captures and fetches once the tour reaches this slide', async () => {
     mount(SlideTextStream, { props: { filename: 'a.txt', index: 1 } })
 
     tourStore.currentIndex = 1
@@ -71,7 +71,7 @@ describe('SlideTextStream', () => {
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
   })
 
-  it('releases when the tour moves past this node without unmounting it', async () => {
+  it('releases when the tour moves past this slide without unmounting it', async () => {
     mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
 
     tourStore.currentIndex = 1
@@ -81,8 +81,8 @@ describe('SlideTextStream', () => {
   })
 
   it('re-captures when the filename changes on a reused instance', async () => {
-    // AsidePanel.vue remounts per node now, but an instance reused across
-    // nodes (only `filename`/`index` change) must still capture for the new one
+    // AsidePanel.vue remounts per slide now, but an instance reused across
+    // slides (only `filename`/`index` change) must still capture for the new one
     // once the previous capture was handed back.
     const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
     tourStore.release()
@@ -244,7 +244,7 @@ describe('SlideTextStream', () => {
       await nextTick()
     }
 
-    it('keeps the newest line in view while the current node streams', async () => {
+    it('keeps the newest line in view while the current slide streams', async () => {
       const wrapper = mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
       stream.isStreaming.value = true
 
@@ -256,7 +256,7 @@ describe('SlideTextStream', () => {
       )
     })
 
-    it('does not scroll for a node the tour has not reached', async () => {
+    it('does not scroll for a slide the tour has not reached', async () => {
       mount(SlideTextStream, { props: { filename: 'a.md', index: 1 } })
       stream.isStreaming.value = true
 

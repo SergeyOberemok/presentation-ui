@@ -1,26 +1,26 @@
 <script setup>
 import { computed, nextTick, useTemplateRef } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useNodesStore } from '@/stores/nodes'
+import { useSlidesStore } from '@/stores/slides'
 import { useIntersectionObserver } from '@vueuse/core'
 import { isWithinRootBounds } from '@/utils/isWithinRootBounds'
 import { useScrollAnchoredPrepend } from '@/composables/useScrollAnchoredPrepend'
 import { useTourMediator } from '@/composables/useTourMediator'
 import { useGuidedTour } from '@/composables/useGuidedTour'
-import { useNodeRouter } from '@/composables/useNodeRouter'
+import { useSlideRouter } from '@/composables/useSlideRouter'
 import { useAsideService } from '@/composables/useAsideService'
-import { resolveNodeDescriptor } from '@/factories/nodeFactory'
-import NodeDetailPanel from '@/components/aside/NodeDetailPanel.vue'
+import { resolveSlideDescriptor } from '@/factories/slideFactory'
+import SlideDetailPanel from '@/components/aside/SlideDetailPanel.vue'
 
 const SENTINEL_MARGIN = 400
 
-const nodesStore = useNodesStore()
-const { hasNext, hasPrev, nextError, prevError, items, minLoadedIndex } = storeToRefs(nodesStore)
-const { loadNext, loadPrev } = nodesStore
+const slidesStore = useSlidesStore()
+const { hasNext, hasPrev, nextError, prevError, slides, minLoadedIndex } = storeToRefs(slidesStore)
+const { loadNext, loadPrev } = slidesStore
 
-const mainItems = computed(() =>
-  items.value
-    .map((item) => ({ item, descriptor: resolveNodeDescriptor(item) }))
+const mainSlides = computed(() =>
+  slides.value
+    .map((slide) => ({ slide, descriptor: resolveSlideDescriptor(slide) }))
     .filter(({ descriptor }) => descriptor.destination === 'main'),
 )
 
@@ -29,9 +29,9 @@ const topSentinel = useTemplateRef('topSentinel')
 const bottomSentinel = useTemplateRef('bottomSentinel')
 
 useScrollAnchoredPrepend(scrollContainer, minLoadedIndex)
-const { vTourNode } = useTourMediator()
+const { vTourSlide } = useTourMediator()
 useGuidedTour(scrollContainer)
-useNodeRouter()
+useSlideRouter()
 
 const asideService = useAsideService()
 
@@ -89,7 +89,7 @@ useIntersectionObserver(
 <template>
   <div class="flex h-full w-full flex-col">
     <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-      <h1 class="text-sm font-semibold text-gray-700">Nodes</h1>
+      <h1 class="text-sm font-semibold text-gray-700">Slides</h1>
     </div>
 
     <div ref="scrollContainer" class="flex-1 overflow-y-auto scrollbar-none">
@@ -97,14 +97,14 @@ useIntersectionObserver(
 
       <ul class="flex flex-col gap-2 px-4 py-6">
         <li
-          v-for="{ item, descriptor } in mainItems"
-          :key="item.index"
-          v-tour-node="item.index"
+          v-for="{ slide, descriptor } in mainSlides"
+          :key="slide.index"
+          v-tour-slide="slide.index"
           class="flex items-baseline gap-2 rounded-lg bg-slate-100 px-4 py-3 cursor-pointer"
-          @click="() => asideService.open(NodeDetailPanel, { node: item })"
+          @click="() => asideService.open(SlideDetailPanel, { slide: slide })"
         >
           <component :is="descriptor.component" v-bind="descriptor.props" />
-          <span class="font-mono text-xs text-gray-400">#{{ item.index }}</span>
+          <span class="font-mono text-xs text-gray-400">#{{ slide.index }}</span>
         </li>
       </ul>
 

@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-vi.mock('@/api/nodes', () => ({
-  fetchNodesPage: vi.fn(),
+vi.mock('@/api/slides', () => ({
+  fetchSlidesPage: vi.fn(),
 }))
 
-import { fetchNodesPage } from '@/api/nodes'
-import { useNodesStore } from '../nodes'
+import { fetchSlidesPage } from '@/api/slides'
+import { useSlidesStore } from '../slides'
 
 function page(pageNumber, items, overrides = {}) {
   return {
@@ -23,7 +23,7 @@ function page(pageNumber, items, overrides = {}) {
 // unloaded (needed to exercise loadPrev) has to be seeded directly.
 function seedPage(store, pageNumber, values, { pageSize = 2, totalPages = 5 } = {}) {
   store.$patch({
-    items: values.map((value, i) => ({
+    slides: values.map((value, i) => ({
       type: 'text',
       value,
       index: (pageNumber - 1) * pageSize + i,
@@ -34,27 +34,27 @@ function seedPage(store, pageNumber, values, { pageSize = 2, totalPages = 5 } = 
   })
 }
 
-describe('useNodesStore', () => {
+describe('useSlidesStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    fetchNodesPage.mockReset()
+    fetchSlidesPage.mockReset()
   })
 
   it('bootstraps on page 1 on the first loadNext', async () => {
-    fetchNodesPage.mockResolvedValueOnce(
+    fetchSlidesPage.mockResolvedValueOnce(
       page(1, [
         { type: 'text', value: 'a' },
         { type: 'text', value: 'b' },
       ]),
     )
-    const store = useNodesStore()
+    const store = useSlidesStore()
 
     await store.loadNext()
 
-    expect(fetchNodesPage).toHaveBeenCalledExactlyOnceWith(1)
+    expect(fetchSlidesPage).toHaveBeenCalledExactlyOnceWith(1)
     expect(store.minPage).toBe(1)
     expect(store.maxPage).toBe(1)
-    expect(store.items).toEqual([
+    expect(store.slides).toEqual([
       { type: 'text', value: 'a', index: 0 },
       { type: 'text', value: 'b', index: 1 },
     ])
@@ -63,21 +63,21 @@ describe('useNodesStore', () => {
   })
 
   it('bootstraps directly on page 1 without a second request when there is only one page', async () => {
-    fetchNodesPage.mockResolvedValueOnce(
+    fetchSlidesPage.mockResolvedValueOnce(
       page(1, [{ type: 'text', value: 'a' }], { total_pages: 1 }),
     )
-    const store = useNodesStore()
+    const store = useSlidesStore()
 
     await store.loadNext()
 
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     expect(store.minPage).toBe(1)
     expect(store.hasNext).toBe(false)
     expect(store.hasPrev).toBe(false)
   })
 
   it('appends subsequent pages on loadNext, in order', async () => {
-    fetchNodesPage.mockResolvedValueOnce(
+    fetchSlidesPage.mockResolvedValueOnce(
       page(
         1,
         [
@@ -87,69 +87,69 @@ describe('useNodesStore', () => {
         { total_pages: 2 },
       ),
     )
-    fetchNodesPage.mockResolvedValueOnce(
+    fetchSlidesPage.mockResolvedValueOnce(
       page(2, [
         { type: 'text', value: 'c' },
         { type: 'text', value: 'd' },
       ]),
     )
-    const store = useNodesStore()
+    const store = useSlidesStore()
 
     await store.loadNext()
     await store.loadNext()
 
-    expect(store.items.map((i) => i.index)).toEqual([0, 1, 2, 3])
-    expect(fetchNodesPage).toHaveBeenNthCalledWith(2, 2)
+    expect(store.slides.map((slide) => slide.index)).toEqual([0, 1, 2, 3])
+    expect(fetchSlidesPage).toHaveBeenNthCalledWith(2, 2)
   })
 
   it('stops requesting once totalPages is reached', async () => {
-    fetchNodesPage.mockResolvedValueOnce(page(1, [], { total_pages: 1 }))
-    const store = useNodesStore()
+    fetchSlidesPage.mockResolvedValueOnce(page(1, [], { total_pages: 1 }))
+    const store = useSlidesStore()
 
     await store.loadNext()
     expect(store.hasNext).toBe(false)
 
     await store.loadNext()
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
   })
 
-  it('prepends an earlier page via loadPrev and keeps items in order', async () => {
-    fetchNodesPage.mockResolvedValueOnce(
+  it('prepends an earlier page via loadPrev and keeps slides in order', async () => {
+    fetchSlidesPage.mockResolvedValueOnce(
       page(2, [
         { type: 'text', value: 'd1' },
         { type: 'text', value: 'd2' },
       ]),
     )
-    const store = useNodesStore()
+    const store = useSlidesStore()
     seedPage(store, 3, ['e1', 'e2'])
     expect(store.hasPrev).toBe(true)
 
     await store.loadPrev()
 
-    expect(fetchNodesPage).toHaveBeenCalledExactlyOnceWith(2)
-    expect(store.items.map((i) => i.value)).toEqual(['d1', 'd2', 'e1', 'e2'])
-    expect(store.items.map((i) => i.index)).toEqual([2, 3, 4, 5])
+    expect(fetchSlidesPage).toHaveBeenCalledExactlyOnceWith(2)
+    expect(store.slides.map((slide) => slide.value)).toEqual(['d1', 'd2', 'e1', 'e2'])
+    expect(store.slides.map((slide) => slide.index)).toEqual([2, 3, 4, 5])
   })
 
   it('does not call loadPrev while there is no previous page', async () => {
-    fetchNodesPage.mockResolvedValueOnce(
+    fetchSlidesPage.mockResolvedValueOnce(
       page(1, [{ type: 'text', value: 'a' }], { total_pages: 1 }),
     )
-    const store = useNodesStore()
+    const store = useSlidesStore()
 
     await store.loadNext()
     expect(store.hasPrev).toBe(false)
 
     await store.loadPrev()
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
   })
 
   it('records a loadNext failure without throwing, and clears it on the next success', async () => {
-    fetchNodesPage.mockRejectedValueOnce(new Error('network down'))
-    fetchNodesPage.mockResolvedValueOnce(
+    fetchSlidesPage.mockRejectedValueOnce(new Error('network down'))
+    fetchSlidesPage.mockResolvedValueOnce(
       page(1, [{ type: 'text', value: 'a' }], { total_pages: 1 }),
     )
-    const store = useNodesStore()
+    const store = useSlidesStore()
 
     await store.loadNext()
     expect(store.nextError).toBeInstanceOf(Error)
@@ -159,8 +159,8 @@ describe('useNodesStore', () => {
   })
 
   it('records a loadPrev failure independently of loadNext state', async () => {
-    fetchNodesPage.mockRejectedValueOnce(new Error('network down'))
-    const store = useNodesStore()
+    fetchSlidesPage.mockRejectedValueOnce(new Error('network down'))
+    const store = useSlidesStore()
     seedPage(store, 3, ['a'])
 
     await store.loadPrev()
@@ -169,28 +169,28 @@ describe('useNodesStore', () => {
     expect(store.nextError).toBeNull()
   })
 
-  it('is a singleton: a second useNodesStore() call shares the same state', async () => {
-    fetchNodesPage.mockResolvedValueOnce(
+  it('is a singleton: a second useSlidesStore() call shares the same state', async () => {
+    fetchSlidesPage.mockResolvedValueOnce(
       page(1, [{ type: 'text', value: 'a' }], { total_pages: 1 }),
     )
-    const storeA = useNodesStore()
+    const storeA = useSlidesStore()
     await storeA.loadNext()
 
-    const storeB = useNodesStore()
-    expect(storeB.items).toEqual(storeA.items)
+    const storeB = useSlidesStore()
+    expect(storeB.slides).toEqual(storeA.slides)
   })
 
   describe('index-keyed data lookups', () => {
     it('are empty before anything has loaded', () => {
-      const store = useNodesStore()
+      const store = useSlidesStore()
 
-      expect(store.itemsByIndex.size).toBe(0)
+      expect(store.slidesByIndex.size).toBe(0)
       expect(store.minLoadedIndex).toBeNull()
       expect(store.maxLoadedIndex).toBeNull()
     })
 
     it('track the loaded index range and support lookup by index', async () => {
-      fetchNodesPage.mockResolvedValueOnce(
+      fetchSlidesPage.mockResolvedValueOnce(
         page(
           1,
           [
@@ -200,31 +200,31 @@ describe('useNodesStore', () => {
           { total_pages: 2 },
         ),
       )
-      fetchNodesPage.mockResolvedValueOnce(
+      fetchSlidesPage.mockResolvedValueOnce(
         page(2, [{ type: 'file:md', destination: 'chat', value: 'notes.md' }]),
       )
-      const store = useNodesStore()
+      const store = useSlidesStore()
 
       await store.loadNext()
       await store.loadNext()
 
       expect(store.minLoadedIndex).toBe(0)
       expect(store.maxLoadedIndex).toBe(2)
-      expect(store.itemsByIndex.get(1)).toEqual({ type: 'text', value: 'b', index: 1 })
-      expect(store.itemsByIndex.get(2)).toEqual({
+      expect(store.slidesByIndex.get(1)).toEqual({ type: 'text', value: 'b', index: 1 })
+      expect(store.slidesByIndex.get(2)).toEqual({
         type: 'file:md',
         destination: 'chat',
         value: 'notes.md',
         index: 2,
       })
-      expect(store.itemsByIndex.has(3)).toBe(false)
+      expect(store.slidesByIndex.has(3)).toBe(false)
     })
   })
 
   it('joins an in-flight loadNext instead of resolving immediately', async () => {
     let resolveFetch
-    fetchNodesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
-    const store = useNodesStore()
+    fetchSlidesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
+    const store = useSlidesStore()
 
     store.loadNext()
     let joinedSettled = false
@@ -235,77 +235,77 @@ describe('useNodesStore', () => {
     resolveFetch(page(1, [{ type: 'text', value: 'a' }]))
     await joined
 
-    expect(store.itemsByIndex.has(0)).toBe(true)
-    expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+    expect(store.slidesByIndex.has(0)).toBe(true)
+    expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
   })
 
   describe('ensureLoaded', () => {
     it('resolves immediately for an index that is already loaded', async () => {
-      const store = useNodesStore()
+      const store = useSlidesStore()
       seedPage(store, 1, ['a', 'b'])
 
       expect(await store.ensureLoaded(1)).toBe(1)
-      expect(fetchNodesPage).not.toHaveBeenCalled()
+      expect(fetchSlidesPage).not.toHaveBeenCalled()
     })
 
     it('bootstraps and loads forward page by page until the index exists', async () => {
-      fetchNodesPage
+      fetchSlidesPage
         .mockResolvedValueOnce(page(1, [{ value: 'a' }, { value: 'b' }]))
         .mockResolvedValueOnce(page(2, [{ value: 'c' }, { value: 'd' }]))
-      const store = useNodesStore()
+      const store = useSlidesStore()
 
       expect(await store.ensureLoaded(3)).toBe(3)
-      expect(fetchNodesPage.mock.calls).toEqual([[1], [2]])
+      expect(fetchSlidesPage.mock.calls).toEqual([[1], [2]])
     })
 
     it('loads backward until the index exists', async () => {
-      fetchNodesPage
+      fetchSlidesPage
         .mockResolvedValueOnce(page(2, [{ value: 'c' }, { value: 'd' }]))
         .mockResolvedValueOnce(page(1, [{ value: 'a' }, { value: 'b' }]))
-      const store = useNodesStore()
+      const store = useSlidesStore()
       seedPage(store, 3, ['e', 'f'])
 
       expect(await store.ensureLoaded(0)).toBe(0)
-      expect(fetchNodesPage.mock.calls).toEqual([[2], [1]])
+      expect(fetchSlidesPage.mock.calls).toEqual([[2], [1]])
     })
 
     it('clamps to the last loaded index when the data ends first', async () => {
-      const store = useNodesStore()
+      const store = useSlidesStore()
       seedPage(store, 1, ['a', 'b'], { totalPages: 1 })
 
       expect(await store.ensureLoaded(5)).toBe(1)
-      expect(fetchNodesPage).not.toHaveBeenCalled()
+      expect(fetchSlidesPage).not.toHaveBeenCalled()
     })
 
     it('stops and clamps once a forward load fails', async () => {
-      fetchNodesPage.mockRejectedValueOnce(new Error('boom'))
-      const store = useNodesStore()
+      fetchSlidesPage.mockRejectedValueOnce(new Error('boom'))
+      const store = useSlidesStore()
       seedPage(store, 1, ['a', 'b'])
 
       expect(await store.ensureLoaded(3)).toBe(1)
-      expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+      expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     })
 
     it('stops and clamps once a backward load fails', async () => {
-      fetchNodesPage.mockRejectedValueOnce(new Error('boom'))
-      const store = useNodesStore()
+      fetchSlidesPage.mockRejectedValueOnce(new Error('boom'))
+      const store = useSlidesStore()
       seedPage(store, 3, ['e', 'f'])
 
       expect(await store.ensureLoaded(0)).toBe(4)
-      expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+      expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     })
 
     it('resolves to null when nothing could be loaded at all', async () => {
-      fetchNodesPage.mockRejectedValueOnce(new Error('boom'))
-      const store = useNodesStore()
+      fetchSlidesPage.mockRejectedValueOnce(new Error('boom'))
+      const store = useSlidesStore()
 
       expect(await store.ensureLoaded(0)).toBeNull()
     })
 
     it('shares a page request already started by someone else (e.g. the feed)', async () => {
       let resolveFetch
-      fetchNodesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
-      const store = useNodesStore()
+      fetchSlidesPage.mockReturnValueOnce(new Promise((r) => (resolveFetch = r)))
+      const store = useSlidesStore()
 
       const feedLoad = store.loadNext()
       const tourLoad = store.ensureLoaded(0)
@@ -313,7 +313,7 @@ describe('useNodesStore', () => {
       await feedLoad
 
       expect(await tourLoad).toBe(0)
-      expect(fetchNodesPage).toHaveBeenCalledTimes(1)
+      expect(fetchSlidesPage).toHaveBeenCalledTimes(1)
     })
   })
 })

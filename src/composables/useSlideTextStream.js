@@ -1,6 +1,6 @@
 import { computed, ref, toValue, watch } from 'vue'
 import { useEventSource } from '@vueuse/core'
-import { buildSlideStreamUrl } from '@/api/slides'
+import { buildSlideStreamUrl } from '@/api/slideStream'
 import { CHUNK_DONE, DONE, FAILED, IDLE, STREAMING, transition } from './slideStreamPhase'
 
 const MESSAGE_EVENT = 'message'

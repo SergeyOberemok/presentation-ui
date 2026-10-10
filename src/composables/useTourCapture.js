@@ -2,7 +2,7 @@ import { onScopeDispose, toValue, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTourStore } from '@/stores/tour'
 
-// Public extension point for dynamic node components that need to take over
+// Public extension point for dynamic slide components that need to take over
 // ArrowRight/ArrowLeft from the guided tour for a while and hand it back when
 // they're done. For example, SlideTextStream walks the tour stops in its
 // renderer's content, then streams the next chunk.
@@ -26,11 +26,11 @@ import { useTourStore } from '@/stores/tour'
 // else has already taken over is a safe no-op rather than clobbering that
 // newer capture.
 //
-// Also re-exports the tour's `currentIndex`, so a node component that can be
+// Also re-exports the tour's `currentIndex`, so a slide component that can be
 // mounted ahead of (or behind) the tour's actual position - e.g. a
-// "main"-destination node sitting in an already-loaded feed - can tell
-// whether it's the node the tour is actually on right now, rather than
-// assuming mount == current (which only "chat" nodes, opened one at a time,
+// "main"-destination slide sitting in an already-loaded feed - can tell
+// whether it's the slide the tour is actually on right now, rather than
+// assuming mount == current (which only "chat" slides, opened one at a time,
 // can safely assume).
 export function useTourCapture() {
   const tourStore = useTourStore()
@@ -72,7 +72,7 @@ export function useTourCapture() {
   return { capture, release, handleNext, handlePrev, currentIndex }
 }
 
-// Declarative capture for node components: holds the arrow keys while
+// Declarative capture for slide components: holds the arrow keys while
 // `source` is truthy and hands them back when it turns falsy or the owning
 // scope is disposed (e.g. unmount). Prefer this over calling capture()/
 // release() by hand - wiring those to the right watchers and lifecycle hooks
@@ -81,8 +81,8 @@ export function useTourCapture() {
 //
 // `source` should return something that identifies *what* is being captured
 // (e.g. the filename), not just `true`: a change to another truthy value
-// re-captures, which a component reused across nodes (the aside panel) needs
-// because the previous node's capture may have been released in between.
+// re-captures, which a component reused across slides (the aside panel) needs
+// because the previous slide's capture may have been released in between.
 export function useCaptureWhile(source, handlers) {
   const { capture, release } = useTourCapture()
 
