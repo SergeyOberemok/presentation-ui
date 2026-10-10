@@ -19,7 +19,9 @@ export const test = base.extend({
       current: () => currentSlide,
       aside: () => page.locator('aside'),
       // The aside's body (below its header), where opened slides render.
-      asideBody: () => page.locator('aside > div').nth(1),
+      // Located by its data attribute, so the aside's wrapper markup (which
+      // differs between the push and overlay layouts) doesn't matter.
+      asideBody: () => page.locator('aside [data-aside-body]'),
       next: () => page.keyboard.press('ArrowRight'),
       prev: () => page.keyboard.press('ArrowLeft'),
       // Press ArrowRight / ArrowLeft and wait for the tour to land on feed

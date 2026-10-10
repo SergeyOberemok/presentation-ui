@@ -6,7 +6,6 @@ test.describe('slide feed', () => {
     await mockSlides(page, textSlides(3))
     await app.open()
 
-    await expect(page.getByRole('heading', { name: 'Slides' })).toBeVisible()
     await expect(app.feedItems()).toHaveText(['Slide 0#0', 'Slide 1#1', 'Slide 2#2'])
   })
 

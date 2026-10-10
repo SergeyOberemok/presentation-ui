@@ -22,7 +22,7 @@ const emit = defineEmits(['close'])
       &times;
     </button>
   </div>
-  <div class="flex-1 overflow-y-auto p-4">
+  <div data-aside-body class="flex-1 overflow-y-auto p-4">
     <component :is="component" v-if="component" :key="componentKey" v-bind="componentProps" />
   </div>
 </template>
