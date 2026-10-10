@@ -30,7 +30,7 @@ const bottomSentinel = useTemplateRef('bottomSentinel')
 
 useScrollAnchoredPrepend(scrollContainer, minLoadedIndex)
 const { vTourSlide } = useTourMediator()
-useGuidedTour(scrollContainer)
+const { currentIndex } = useGuidedTour(scrollContainer)
 useSlideRouter()
 
 const asideService = useAsideService()
@@ -100,6 +100,8 @@ useIntersectionObserver(
           v-for="{ slide, descriptor } in mainSlides"
           :key="slide.index"
           v-tour-slide="slide.index"
+          :data-slide-index="slide.index"
+          :aria-current="slide.index === currentIndex ? 'step' : undefined"
           class="flex items-baseline gap-2 rounded-lg bg-slate-100 px-4 py-3 cursor-pointer"
           @click="() => asideService.open(SlideDetailPanel, { slide: slide })"
         >

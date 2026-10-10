@@ -29,6 +29,15 @@ export default defineConfig([
   {
     ...pluginPlaywright.configs['flat/recommended'],
     files: ['e2e/**/*.{test,spec}.{js,ts,jsx,tsx}'],
+    rules: {
+      ...pluginPlaywright.configs['flat/recommended'].rules,
+      // The app fixture's navigation helpers (e2e/support/fixtures.js) assert
+      // where the tour landed.
+      'playwright/expect-expect': [
+        'warn',
+        { assertFunctionNames: ['expect', 'nextTo', 'prevTo', 'toChatSlide'] },
+      ],
+    },
   },
 
   {

@@ -150,7 +150,12 @@ produced from content must go through `DOMPurify.sanitize` before `v-html`.
 - Unit tests live alongside features in `__tests__/` directories (e.g. `src/stores/__tests__/`,
   `src/composables/__tests__/`) and use Vitest + `@vue/test-utils`. `vitest.config.js` merges
   `vite.config.js` and excludes `e2e/**`.
-- E2E tests live in top-level `e2e/`.
+- E2E tests live in top-level `e2e/` (Chromium only by default). They never hit the backend:
+  `e2e/support/mockApi.js` mocks `/slides/` and the SSE stream with `page.route` (including held and
+  dropped chunks), and the `app` fixture in `e2e/support/fixtures.js` wraps the feed and aside locators and
+  the arrow-key helpers. The tour's current feed slide carries `aria-current="step"`, and each feed `<li>`
+  has a `data-slide-index`. `goTo()` drops presses while it's navigating, so walk the tour with
+  `app.nextTo(i)` / `app.prevTo(i)` / `app.toChatSlide(name)`, which wait after each press.
 - Linting is layered: `eslint-plugin-oxlint` disables ESLint rules that oxlint (`.oxlintrc.json`) already
   covers, so oxlint runs first in `npm run lint`.
 - Formatting: no semicolons, single quotes, 100-char print width (`.prettierrc.json`);
