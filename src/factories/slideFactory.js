@@ -20,6 +20,9 @@ const TYPE_RESOLVERS = {
       // An inline slide streams its first chunk as soon as the tour reaches
       // it; the aside opens empty and waits for ArrowRight to start.
       autoStart: destination === MAIN,
+      // The aside reads like a chat and keeps the newest line in view; an
+      // inline slide stays centered where the tour put it.
+      followStream: destination !== MAIN,
     },
   }),
 }

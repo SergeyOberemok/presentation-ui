@@ -121,8 +121,10 @@ produced from content must go through `DOMPurify.sanitize` before `v-html`.
   `**bold**` stays plain styling. The marker token type is one constant in `MarkdownRenderer.vue`.
   `<mark>` is unstyled unless its block is the active stop. The active stop is scrolled to the center
   (`block: 'center'`, which the browser clamps at the content's edges).
-- While the current slide streams, `SlideTextStream` keeps the newest line in view by scrolling a
-  zero-height end marker with `block: 'nearest'`, at most once per frame.
+- While the current slide streams in the aside (`followStream`, set by the factory for non-`main`
+  slides), `SlideTextStream` keeps the newest line in view chat-style by scrolling a zero-height end
+  marker with `block: 'nearest'`, at most once per frame. Main-feed slides don't follow, so they stay
+  centered where the tour put them.
 
 ### Aside panel
 

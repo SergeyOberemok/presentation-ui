@@ -15,6 +15,10 @@ const props = defineProps({
   // (aside panel), the slide starts empty and the first ArrowRight - routed
   // through the capture below - starts the stream instead.
   autoStart: { type: Boolean, default: true },
+  // Keep the newest streamed line in view, chat-style (aside panel). A main
+  // feed slide stays where the tour put it (centered in its full-height
+  // <li>), since following the end there pushes the slide off-center.
+  followStream: { type: Boolean, default: false },
 })
 
 const { text, isStreaming, hasFailed, isDone, fetchNextChunk, started } = useSlideTextStream(
@@ -87,15 +91,16 @@ watch(
 // 'nearest' scrolls only as far as needed to reveal the last line, and not at
 // all while it's already visible. A short slide the tour just aligned to the
 // top therefore stays put. Lines arrive every few ms, so scrolls are batched
-// to one per frame. Only the tour's current slide scrolls, so main-feed slides
-// mounted ahead of the tour never move the feed.
+// to one per frame. Only the tour's current slide scrolls, and only when
+// followStream is on (the aside), so main-feed slides never move the feed.
 const streamEnd = useTemplateRef('streamEnd')
 let followFrame = null
 
 watch(
   text,
   () => {
-    if (!isStreaming.value || !isCurrent.value || followFrame !== null) return
+    if (!props.followStream || !isStreaming.value || !isCurrent.value || followFrame !== null)
+      return
     followFrame = requestAnimationFrame(() => {
       followFrame = null
       streamEnd.value?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })

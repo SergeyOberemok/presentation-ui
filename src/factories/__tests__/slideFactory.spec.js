@@ -21,7 +21,12 @@ describe('resolveSlideDescriptor', () => {
     })
 
     expect(descriptor.component).toBe(SlideTextStream)
-    expect(descriptor.props).toEqual({ filename: 'notes.md', index: 3, autoStart: false })
+    expect(descriptor.props).toEqual({
+      filename: 'notes.md',
+      index: 3,
+      autoStart: false,
+      followStream: true,
+    })
     expect(descriptor.destination).toBe('chat')
   })
 
@@ -39,7 +44,12 @@ describe('resolveSlideDescriptor', () => {
     const descriptor = resolveSlideDescriptor({ type: 'file:json', value: 'test.json', index: 2 })
 
     expect(descriptor.component).toBe(SlideTextStream)
-    expect(descriptor.props).toEqual({ filename: 'test.json', index: 2, autoStart: true })
+    expect(descriptor.props).toEqual({
+      filename: 'test.json',
+      index: 2,
+      autoStart: true,
+      followStream: false,
+    })
     expect(descriptor.destination).toBe('main')
   })
 
@@ -52,6 +62,7 @@ describe('resolveSlideDescriptor', () => {
 
     expect(descriptor.destination).toBe('main')
     expect(descriptor.props.autoStart).toBe(true) // streams inline like file:json
+    expect(descriptor.props.followStream).toBe(false) // stays centered in the feed
   })
 
   it('respects an explicit destination override on a file:json slide', () => {
@@ -63,6 +74,7 @@ describe('resolveSlideDescriptor', () => {
 
     expect(descriptor.destination).toBe('chat')
     expect(descriptor.props.autoStart).toBe(false) // aside waits for ArrowRight
+    expect(descriptor.props.followStream).toBe(true) // aside follows the newest line
   })
 
   it('falls back to the text resolver for an unknown type', () => {

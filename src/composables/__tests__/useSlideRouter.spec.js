@@ -27,7 +27,12 @@ describe('useSlideRouter', () => {
 
     expect(asideStore.isOpen).toBe(true)
     expect(asideStore.activeComponent).toBe(SlideTextStream)
-    expect(asideStore.activeProps).toEqual({ filename: 'notes.md', index: 0, autoStart: false })
+    expect(asideStore.activeProps).toEqual({
+      filename: 'notes.md',
+      index: 0,
+      autoStart: false,
+      followStream: true,
+    })
   })
 
   it('closes the aside when the current slide is a main-destination slide', async () => {

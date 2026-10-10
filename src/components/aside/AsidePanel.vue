@@ -19,22 +19,26 @@ onKeyStroke('Escape', () => {
   <!-- Backdrop: mobile only, when panel is open -->
   <div v-if="!isLg && isOpen" class="fixed inset-0 z-30 bg-black/40" @click="close()" />
 
-  <!-- lg aside: always in DOM, translate drives push-layout. aria-hidden +
-       inert keep the closed panel out of the focus/AT order. -->
+  <!-- lg aside: always in DOM, its width drives push-layout (0 when closed, so
+       the feed gets the full width). The inner box keeps a fixed width so the
+       content doesn't reflow while the width animates. aria-hidden + inert keep
+       the closed panel out of the focus/AT order. -->
   <aside
     v-if="isLg"
-    class="relative flex h-full w-1/3 shrink-0 flex-col border-l border-gray-200 bg-white transition-transform ease-in-out"
-    :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
+    class="relative h-full shrink-0 overflow-hidden bg-white transition-[width] ease-in-out"
+    :class="isOpen ? 'w-1/3 border-l border-gray-200' : 'w-0'"
     :style="transitionStyle"
     :aria-hidden="!isOpen || undefined"
     :inert="!isOpen || undefined"
   >
-    <AsidePanelContent
-      :component="activeComponent"
-      :component-props="activeProps"
-      :component-key="activeKey"
-      @close="close()"
-    />
+    <div class="flex h-full w-[33.3334vw] flex-col">
+      <AsidePanelContent
+        :component="activeComponent"
+        :component-props="activeProps"
+        :component-key="activeKey"
+        @close="close()"
+      />
+    </div>
   </aside>
 
   <!-- Mobile aside: only mounted when there is something to show -->

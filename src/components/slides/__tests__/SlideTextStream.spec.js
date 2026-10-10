@@ -245,7 +245,9 @@ describe('SlideTextStream', () => {
     }
 
     it('keeps the newest line in view while the current slide streams', async () => {
-      const wrapper = mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+      const wrapper = mount(SlideTextStream, {
+        props: { filename: 'a.md', index: 0, followStream: true },
+      })
       stream.isStreaming.value = true
 
       await streamLine('first line')
@@ -256,8 +258,17 @@ describe('SlideTextStream', () => {
       )
     })
 
+    it('does not follow the stream without followStream (main feed stays centered)', async () => {
+      mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+      stream.isStreaming.value = true
+
+      await streamLine('first line')
+
+      expect(scrollIntoView).not.toHaveBeenCalled()
+    })
+
     it('does not scroll for a slide the tour has not reached', async () => {
-      mount(SlideTextStream, { props: { filename: 'a.md', index: 1 } })
+      mount(SlideTextStream, { props: { filename: 'a.md', index: 1, followStream: true } })
       stream.isStreaming.value = true
 
       await streamLine('first line')
@@ -266,7 +277,7 @@ describe('SlideTextStream', () => {
     })
 
     it('does not scroll when text changes without streaming', async () => {
-      mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+      mount(SlideTextStream, { props: { filename: 'a.md', index: 0, followStream: true } })
 
       await streamLine('first line')
 
@@ -298,7 +309,9 @@ describe('SlideTextStream', () => {
     const cancel = vi.fn()
     vi.stubGlobal('requestAnimationFrame', () => 7) // never fires
     vi.stubGlobal('cancelAnimationFrame', cancel)
-    const wrapper = mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+    const wrapper = mount(SlideTextStream, {
+      props: { filename: 'a.md', index: 0, followStream: true },
+    })
     stream.isStreaming.value = true
     stream.text.value = 'line'
     await nextTick()

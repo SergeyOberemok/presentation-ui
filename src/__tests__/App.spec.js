@@ -14,7 +14,7 @@ describe('App', () => {
         {
           path: '/',
           name: 'main',
-          component: () => import('../views/MainView.vue/index.js'),
+          component: () => import('../views/MainView.vue'),
         },
       ],
     })
