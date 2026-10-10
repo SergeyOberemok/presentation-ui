@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
@@ -34,11 +34,12 @@ describe('SlideTextStream', () => {
   })
 
   const capturedNext = () => tourStore.activeCapture?.onNext
+  const capturedPrev = () => tourStore.activeCapture?.onPrev
 
   it('captures the tour and starts the stream when mounted as the current node', () => {
     mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
 
-    expect(capturedNext()).toBe(stream.fetchNextChunk)
+    expect(capturedNext()).toBeTypeOf('function')
     expect(stream.fetchNextChunk).toHaveBeenCalledTimes(1)
   })
 
@@ -55,7 +56,7 @@ describe('SlideTextStream', () => {
     tourStore.currentIndex = 1
     await nextTick()
 
-    expect(capturedNext()).toBe(stream.fetchNextChunk)
+    expect(capturedNext()).toBeTypeOf('function')
     expect(stream.fetchNextChunk).toHaveBeenCalledTimes(1)
   })
 
@@ -66,7 +67,7 @@ describe('SlideTextStream', () => {
     tourStore.currentIndex = 1
     await nextTick()
 
-    expect(capturedNext()).toBe(stream.fetchNextChunk)
+    expect(capturedNext()).toBeTypeOf('function')
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
   })
 
@@ -89,7 +90,7 @@ describe('SlideTextStream', () => {
     tourStore.currentIndex = 1
     await wrapper.setProps({ filename: 'b.txt', index: 1 })
 
-    expect(capturedNext()).toBe(stream.fetchNextChunk)
+    expect(capturedNext()).toBeTypeOf('function')
   })
 
   it('releases once the stream reports done', async () => {
@@ -126,7 +127,150 @@ describe('SlideTextStream', () => {
     // Aside-panel slides open empty; the first ArrowRight fetches chunk 0.
     mount(SlideTextStream, { props: { filename: 'a.md', index: 0, autoStart: false } })
 
-    expect(capturedNext()).toBe(stream.fetchNextChunk)
+    expect(capturedNext()).toBeTypeOf('function')
     expect(stream.fetchNextChunk).not.toHaveBeenCalled()
+  })
+
+  describe('tour stops', () => {
+    const TWO_STOPS = 'intro\n\n==first== point\n\nplain\n\n- ==second== point'
+
+    async function mountStreamed(text, { isDone = false } = {}) {
+      stream.started.value = true
+      stream.text.value = text
+      stream.isDone.value = isDone
+      const wrapper = mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+      await nextTick()
+      return wrapper
+    }
+
+    const activeStops = (wrapper) =>
+      wrapper.findAll('.tour-step-active').map((el) => el.attributes('data-tour-step'))
+
+    it('walks the stops before fetching the next chunk', async () => {
+      const wrapper = await mountStreamed(TWO_STOPS)
+
+      expect(await capturedNext()()).toBe(true)
+      await nextTick()
+      expect(activeStops(wrapper)).toEqual(['0'])
+
+      expect(await capturedNext()()).toBe(true)
+      await nextTick()
+      expect(activeStops(wrapper)).toEqual(['1'])
+      expect(stream.fetchNextChunk).not.toHaveBeenCalled()
+
+      stream.fetchNextChunk.mockReturnValue(true)
+      expect(await capturedNext()()).toBe(true)
+      await nextTick()
+      expect(stream.fetchNextChunk).toHaveBeenCalledTimes(1)
+      expect(activeStops(wrapper)).toEqual([])
+    })
+
+    it('does not walk stops while a chunk is still streaming', async () => {
+      await mountStreamed(TWO_STOPS)
+      stream.isStreaming.value = true
+
+      expect(await capturedNext()()).toBe(true)
+      expect(stream.fetchNextChunk).not.toHaveBeenCalled()
+    })
+
+    it('keeps the capture on a fully streamed file until its last stop is visited', async () => {
+      await mountStreamed(TWO_STOPS, { isDone: true })
+      expect(capturedNext()).toBeTypeOf('function')
+
+      await capturedNext()()
+      await nextTick()
+      expect(capturedNext()).toBeTypeOf('function')
+
+      await capturedNext()()
+      await nextTick()
+      expect(tourStore.activeCapture).toBeNull()
+    })
+
+    it('hands ArrowRight back to the tour after the last stop of a done file', async () => {
+      await mountStreamed('==only==', { isDone: true })
+      const onNext = capturedNext()
+      stream.fetchNextChunk.mockReturnValue(false)
+
+      expect(await onNext()).toBe(true)
+      expect(await onNext()).toBe(false)
+    })
+
+    it('walks ArrowLeft back through the stops, then hands back to the tour', async () => {
+      const wrapper = await mountStreamed(TWO_STOPS)
+      await capturedNext()()
+      await capturedNext()()
+
+      expect(await capturedPrev()()).toBe(true)
+      await nextTick()
+      expect(activeStops(wrapper)).toEqual(['0'])
+
+      expect(await capturedPrev()()).toBe(false)
+      await nextTick()
+      expect(activeStops(wrapper)).toEqual([])
+    })
+
+    it('restarts the stops for a different file', async () => {
+      const wrapper = await mountStreamed(TWO_STOPS)
+      await capturedNext()()
+      await capturedNext()()
+
+      await wrapper.setProps({ filename: 'b.md' })
+      await capturedNext()()
+      await nextTick()
+
+      expect(activeStops(wrapper)).toEqual(['0'])
+    })
+  })
+
+  describe('following streamed text', () => {
+    let scrollIntoView
+
+    beforeEach(() => {
+      scrollIntoView = vi.fn()
+      Element.prototype.scrollIntoView = scrollIntoView
+      vi.stubGlobal('requestAnimationFrame', (cb) => {
+        cb()
+        return 1
+      })
+    })
+
+    afterEach(() => {
+      delete Element.prototype.scrollIntoView
+      vi.unstubAllGlobals()
+    })
+
+    async function streamLine(line) {
+      stream.text.value += line
+      await nextTick()
+    }
+
+    it('keeps the newest line in view while the current node streams', async () => {
+      const wrapper = mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+      stream.isStreaming.value = true
+
+      await streamLine('first line')
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
+      expect(scrollIntoView.mock.contexts.at(-1)).toBe(
+        wrapper.find('div[aria-hidden="true"]').element,
+      )
+    })
+
+    it('does not scroll for a node the tour has not reached', async () => {
+      mount(SlideTextStream, { props: { filename: 'a.md', index: 1 } })
+      stream.isStreaming.value = true
+
+      await streamLine('first line')
+
+      expect(scrollIntoView).not.toHaveBeenCalled()
+    })
+
+    it('does not scroll when text changes without streaming', async () => {
+      mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+
+      await streamLine('first line')
+
+      expect(scrollIntoView).not.toHaveBeenCalled()
+    })
   })
 })

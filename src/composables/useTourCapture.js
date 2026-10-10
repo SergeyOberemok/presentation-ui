@@ -3,8 +3,9 @@ import { storeToRefs } from 'pinia'
 import { useTourStore } from '@/stores/tour'
 
 // Public extension point for dynamic node components that need to take over
-// ArrowRight/ArrowLeft from the guided tour for a while (e.g. SlideTextStream
-// driving its own stream progression) and hand it back when they're done.
+// ArrowRight/ArrowLeft from the guided tour for a while and hand it back when
+// they're done. For example, SlideTextStream walks the tour stops in its
+// renderer's content, then streams the next chunk.
 //
 // capture({ onNext, onPrev }) makes useGuidedTour route arrow keys here
 // instead of its own next()/prev():

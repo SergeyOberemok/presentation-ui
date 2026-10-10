@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
 
@@ -34,5 +34,35 @@ describe('MarkdownRenderer', () => {
     const wrapper = render('[docs](https://example.com)')
 
     expect(wrapper.find('a').attributes('href')).toBe('https://example.com')
+  })
+
+  describe('tour stops', () => {
+    it('emits the stop count when the text changes', async () => {
+      const wrapper = render('==a==')
+      await wrapper.setProps({ text: '==a==\n\n==b==' })
+
+      expect(wrapper.emitted('steps')).toEqual([[1], [2]])
+    })
+
+    it('keeps the stop markup through sanitizing', () => {
+      const wrapper = mount(MarkdownRenderer, { props: { text: '==a==\n\n==b==', activeStep: 1 } })
+
+      const active = wrapper.find('.tour-step-active')
+      expect(active.attributes('data-tour-step')).toBe('1')
+      expect(active.find('mark').text()).toBe('b')
+    })
+
+    it('scrolls the active stop into view', async () => {
+      const scrollIntoView = vi.fn()
+      Element.prototype.scrollIntoView = scrollIntoView
+      const wrapper = mount(MarkdownRenderer, { props: { text: '==a==\n\n==b==' } })
+
+      await wrapper.setProps({ activeStep: 1 })
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+      expect(scrollIntoView.mock.contexts[0].getAttribute('data-tour-step')).toBe('1')
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' })
+      delete Element.prototype.scrollIntoView
+    })
   })
 })

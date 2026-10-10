@@ -1,7 +1,8 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, onScopeDispose, ref, useTemplateRef, watch } from 'vue'
 import { useSlideTextStream } from '@/composables/useSlideTextStream'
 import { useCaptureWhile, useTourCapture } from '@/composables/useTourCapture'
+import { hasPendingStep, initialSteps, nextStep, prevStep } from '@/composables/slideSteps'
 import { resolveSlideRenderer } from '@/components/slides/renderers'
 
 const props = defineProps({
@@ -31,15 +32,46 @@ const { currentIndex } = useTourCapture()
 // have to wait for isCurrent, not mount.
 const isCurrent = computed(() => props.index === currentIndex.value)
 
-// ArrowRight reveals the next chunk while this is the tour's node and there's
-// still something left to stream; a fully streamed slide hands the keys back
-// (also when revisited later, since its isDone state survives). Keyed by
-// index/filename so an instance given a new node's props re-captures for it
-// (the aside remounts per node - see the aside store's activeKey - but this
-// stays correct if an instance is ever reused).
-useCaptureWhile(() => isCurrent.value && !isDone.value && `${props.index}:${props.filename}`, {
-  onNext: fetchNextChunk,
-})
+// Tour stops inside the content (e.g. emphasized markdown blocks). The
+// renderer reports how many there are, and this component owns the cursor.
+// Renderers that don't support stops never emit, so the count stays 0.
+const stepCount = ref(0)
+const steps = ref(initialSteps())
+const activeStep = computed(() => (steps.value.highlighted ? steps.value.cursor : null))
+
+// ArrowRight first walks the stops of the text streamed so far, then reveals
+// the next chunk. Stops aren't walked mid-chunk because the text (and the
+// count) is still changing. Once there's nothing left to stream,
+// fetchNextChunk() returns false and the tour moves on.
+function onNext() {
+  if (isStreaming.value) return true
+  const { state, moved } = nextStep(steps.value, stepCount.value)
+  steps.value = state
+  return moved || fetchNextChunk()
+}
+
+// ArrowLeft walks the stops back. Before the first one, it hands control back
+// to the tour. Chunks already streamed stay revealed.
+function onPrev() {
+  const { state, moved } = prevStep(steps.value)
+  steps.value = state
+  return moved
+}
+
+// Holds the arrow keys while this is the tour's node and there's still
+// something to stream or a stop to visit. A slide that's fully streamed and
+// walked hands the keys back, including when revisited later, since its
+// stream and cursor state survive. Keyed by index/filename so an instance
+// given a new node's props re-captures for it. The aside remounts per node
+// (see the aside store's activeKey), but this stays correct if an instance is
+// ever reused.
+useCaptureWhile(
+  () =>
+    isCurrent.value &&
+    (!isDone.value || hasPendingStep(steps.value, stepCount.value)) &&
+    `${props.index}:${props.filename}`,
+  { onNext, onPrev },
+)
 
 // Watches filename too, not just the isCurrent transition, for the same
 // reused-instance case.
@@ -49,6 +81,40 @@ watch(
     if (current && props.autoStart && !started.value) fetchNextChunk()
   },
   { immediate: true },
+)
+
+// Keeps the newest streamed line in view. The zero-height end marker with
+// 'nearest' scrolls only as far as needed to reveal the last line, and not at
+// all while it's already visible. A short slide the tour just aligned to the
+// top therefore stays put. Lines arrive every few ms, so scrolls are batched
+// to one per frame. Only the tour's current node scrolls, so main-feed slides
+// mounted ahead of the tour never move the feed.
+const streamEnd = useTemplateRef('streamEnd')
+let followFrame = null
+
+watch(
+  text,
+  () => {
+    if (!isStreaming.value || !isCurrent.value || followFrame !== null) return
+    followFrame = requestAnimationFrame(() => {
+      followFrame = null
+      streamEnd.value?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+    })
+  },
+  { flush: 'post' },
+)
+
+onScopeDispose(() => {
+  if (followFrame !== null) cancelAnimationFrame(followFrame)
+})
+
+// A different file's stops start from scratch. useSlideTextStream resets its
+// own state on the same change.
+watch(
+  () => props.filename,
+  () => {
+    steps.value = initialSteps()
+  },
 )
 </script>
 
@@ -63,7 +129,14 @@ watch(
       />
     </div>
 
-    <component :is="renderer" :text="text" :filename="filename" />
+    <component
+      :is="renderer"
+      :text="text"
+      :filename="filename"
+      :active-step="activeStep"
+      @steps="stepCount = $event"
+    />
+    <div ref="streamEnd" aria-hidden="true" />
 
     <p v-if="hasFailed" class="mt-2 text-sm text-red-500">Connection lost while streaming.</p>
   </div>

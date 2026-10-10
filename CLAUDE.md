@@ -11,7 +11,7 @@ that type and its properties — inline in the main feed, or in the aside ("chat
 nodes streamed line-by-line from the backend.
 
 Stack: Pinia (setup-style stores), Vue Router, Tailwind CSS v4 (via `@tailwindcss/vite`, imported in
-`src/styles.css`), `@vueuse/core`, `markdown-it` + `highlight.js` + `DOMPurify` for slide content.
+`src/styles.css`), `@vueuse/core`, `markdown-it` (+ `markdown-it-mark`) + `highlight.js` + `DOMPurify` for slide content.
 
 ## Commands
 
@@ -109,9 +109,20 @@ produced from content must go through `DOMPurify.sanitize` before `v-html`.
   `hasFailed` are derived from `phase`, not from `useEventSource`'s `status`, which already reads
   `CONNECTING` before anything is opened. New stream states or events go in the transition table and its
   spec.
-- `SlideTextStream.vue` holds the arrow keys via `useCaptureWhile` while `index === currentIndex` and the
-  file isn't done, so ArrowRight reveals the next chunk. Main-feed nodes are mounted well before the tour
-  reaches them, hence the `currentIndex` check.
+- `SlideTextStream.vue` holds the arrow keys via `useCaptureWhile` while `index === currentIndex` and
+  either the file isn't done or a tour stop is still unvisited. Main-feed nodes are mounted well before
+  the tour reaches them, hence the `currentIndex` check.
+- **Tour stops**: a renderer can define stops inside its content. It emits `steps` (a count) and takes
+  `activeStep`, which it highlights and scrolls into view (the contract is in `renderers/index.js`).
+  After a chunk has streamed, ArrowRight walks the stops not visited yet, then fetches the next chunk.
+  ArrowLeft walks back, then hands control to the tour. The cursor is the pure
+  `src/composables/slideSteps.js`. For markdown, a stop is a block (paragraph, list item, heading, table
+  cell) containing `==…==` (markdown-it-mark), tagged by the `markdownTourSteps` markdown-it plugin;
+  `**bold**` stays plain styling. The marker token type is one constant in `MarkdownRenderer.vue`.
+  `<mark>` is unstyled unless its block is the active stop. The active stop is scrolled to the center
+  (`block: 'center'`, which the browser clamps at the content's edges).
+- While the current node streams, `SlideTextStream` keeps the newest line in view by scrolling a
+  zero-height end marker with `block: 'nearest'`, at most once per frame.
 
 ### Aside panel
 
