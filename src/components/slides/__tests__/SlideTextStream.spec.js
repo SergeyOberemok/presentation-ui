@@ -273,4 +273,39 @@ describe('SlideTextStream', () => {
       expect(scrollIntoView).not.toHaveBeenCalled()
     })
   })
+
+  it('shows a connection-lost message when the stream failed', async () => {
+    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
+    expect(wrapper.text()).not.toContain('Connection lost while streaming.')
+
+    stream.hasFailed.value = true
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Connection lost while streaming.')
+  })
+
+  it('streams the filename it was given, tracking later changes', async () => {
+    const wrapper = mount(SlideTextStream, { props: { filename: 'a.txt', index: 0 } })
+    const getFilename = useSlideTextStream.mock.calls.at(-1)[0]
+    expect(getFilename()).toBe('a.txt')
+
+    await wrapper.setProps({ filename: 'b.txt' })
+
+    expect(getFilename()).toBe('b.txt')
+  })
+
+  it('cancels a pending follow-scroll frame on unmount', async () => {
+    const cancel = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', () => 7) // never fires
+    vi.stubGlobal('cancelAnimationFrame', cancel)
+    const wrapper = mount(SlideTextStream, { props: { filename: 'a.md', index: 0 } })
+    stream.isStreaming.value = true
+    stream.text.value = 'line'
+    await nextTick()
+
+    wrapper.unmount()
+
+    expect(cancel).toHaveBeenCalledWith(7)
+    vi.unstubAllGlobals()
+  })
 })

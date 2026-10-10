@@ -34,7 +34,7 @@ Stack: Pinia (setup-style stores), Vue Router, Tailwind CSS v4 (via `@tailwindcs
 
 ## Architecture
 
-Single route `/` → `src/views/Main.vue`: `InfiniteNodeFeed` (main column) + `AsidePanel` (right panel).
+Single route `/` → `src/views/MainView.vue`: `InfiniteNodeFeed` (main column) + `AsidePanel` (right panel).
 
 ### Node type → rendering (the central extension point)
 
@@ -145,7 +145,7 @@ produced from content must go through `DOMPurify.sanitize` before `v-html`.
   scaffolding.
 - Reusable logic lives in `src/composables/`, API calls in `src/api/`, type-based resolution in
   `src/factories/`, and framework-free helpers in `src/utils/`.
-- Comments explain *why* (edge cases, race conditions, backend quirks) — keep that style when changing
+- Comments explain _why_ (edge cases, race conditions, backend quirks) — keep that style when changing
   subtle logic.
 - Unit tests live alongside features in `__tests__/` directories (e.g. `src/stores/__tests__/`,
   `src/composables/__tests__/`) and use Vitest + `@vue/test-utils`. `vitest.config.js` merges

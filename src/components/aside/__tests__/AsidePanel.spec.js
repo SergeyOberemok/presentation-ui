@@ -111,4 +111,22 @@ describe('AsidePanel', () => {
 
     expect(store.isOpen).toBe(false)
   })
+
+  it('closes the mobile drawer from its close button', async () => {
+    isLg.value = false
+    const wrapper = mount(AsidePanel)
+    store.open(Probe)
+    await nextTick()
+
+    await wrapper.find('aside [aria-label="Close panel"]').trigger('click')
+
+    expect(store.isOpen).toBe(false)
+  })
+
+  it('does not mount the mobile drawer until something was opened', () => {
+    isLg.value = false
+    const wrapper = mount(AsidePanel)
+
+    expect(wrapper.find('aside').exists()).toBe(false)
+  })
 })

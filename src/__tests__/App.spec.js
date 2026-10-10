@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { mount } from '@vue/test-utils'
-import { createRouter, createMemoryHistory } from 'vue-router'
 import { createPinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import App from '../App.vue'
 import InfiniteNodeFeed from '../components/nodes/InfiniteNodeFeed.vue'
 
@@ -14,7 +14,7 @@ describe('App', () => {
         {
           path: '/',
           name: 'main',
-          component: () => import('../views/Main.vue'),
+          component: () => import('../views/MainView.vue/index.js'),
         },
       ],
     })

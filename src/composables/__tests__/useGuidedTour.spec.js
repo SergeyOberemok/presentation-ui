@@ -263,4 +263,42 @@ describe('useGuidedTour', () => {
     expect(tourStore.currentIndex).toBe(1)
     expect(tourStore.activeCapture).not.toBeNull()
   })
+
+  it('handles arrow keys when the event has no target', async () => {
+    seedLoaded(0, 1)
+    useGuidedTour(fakeContainer())
+
+    const preventDefault = vi.fn()
+    await keyHandler()({ key: 'ArrowRight', target: null, preventDefault })
+
+    expect(preventDefault).toHaveBeenCalled()
+    await vi.waitFor(() => expect(tourStore.currentIndex).toBe(1))
+  })
+
+  it('ignores keys pressed while a navigation is still loading', async () => {
+    seedLoaded(0, 0)
+    let resolvePage
+    fetchNodesPage.mockReturnValueOnce(new Promise((r) => (resolvePage = r)))
+    const ensureLoaded = vi.spyOn(nodesStore, 'ensureLoaded')
+    useGuidedTour(fakeContainer())
+
+    const first = press('ArrowRight')
+    await press('ArrowLeft') // dropped: the first navigation hasn't finished
+    resolvePage(apiPage(1))
+    await first
+
+    await vi.waitFor(() => expect(tourStore.currentIndex).toBe(1))
+    expect(ensureLoaded).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays on the current node when nothing could be loaded', async () => {
+    seedLoaded(0, 0)
+    tourStore.currentIndex = 0
+    vi.spyOn(nodesStore, 'ensureLoaded').mockResolvedValue(null)
+    useGuidedTour(fakeContainer())
+
+    await press('ArrowRight')
+
+    expect(tourStore.currentIndex).toBe(0)
+  })
 })

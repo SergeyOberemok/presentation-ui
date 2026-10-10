@@ -286,4 +286,73 @@ describe('useSlideTextStream', () => {
 
     expect(es.close).toHaveBeenCalled()
   })
+
+  describe('malformed events', () => {
+    it('still ends the chunk when the done payload is not valid JSON', async () => {
+      const { lines, isStreaming, hasMore, fetchNextChunk } = useSlideTextStream('a.md')
+      fetchNextChunk()
+      es.lastEventId.value = '0'
+      es.data.value = 'first'
+      await nextTick()
+
+      es.event.value = 'done'
+      es.data.value = 'not json'
+      await nextTick()
+
+      expect(lines.value).toEqual(['first'])
+      expect(isStreaming.value).toBe(false)
+      expect(hasMore.value).toBe(true) // unchanged: nothing was parsed
+    })
+
+    it('ignores a done event whose data is not a string', async () => {
+      const { isStreaming, hasMore, fetchNextChunk } = useSlideTextStream('a.md')
+      fetchNextChunk()
+
+      es.event.value = 'done'
+      es.data.value = 42
+      await nextTick()
+
+      expect(isStreaming.value).toBe(false)
+      expect(hasMore.value).toBe(true)
+    })
+
+    it('ignores a message with no data', async () => {
+      const { lines, fetchNextChunk } = useSlideTextStream('a.md')
+      fetchNextChunk()
+
+      es.lastEventId.value = '0'
+      es.data.value = null
+      await nextTick()
+
+      expect(lines.value).toEqual([])
+    })
+
+    it('appends a line whose event id is not a line index', async () => {
+      const { lines, fetchNextChunk } = useSlideTextStream('a.md')
+      fetchNextChunk()
+
+      es.lastEventId.value = ''
+      es.data.value = 'a'
+      await nextTick()
+      es.lastEventId.value = 'x'
+      es.data.value = 'b'
+      await nextTick()
+
+      expect(lines.value).toEqual(['a', 'b'])
+    })
+  })
+
+  it('does nothing when the error is cleared', async () => {
+    const { phase, fetchNextChunk } = useSlideTextStream('a.md')
+    fetchNextChunk()
+    es.error.value = new Event('error')
+    await nextTick()
+    es.close.mockClear()
+
+    es.error.value = null
+    await nextTick()
+
+    expect(es.close).not.toHaveBeenCalled()
+    expect(phase.value).toBe('failed')
+  })
 })

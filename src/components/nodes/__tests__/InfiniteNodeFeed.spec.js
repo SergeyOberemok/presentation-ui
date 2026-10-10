@@ -8,6 +8,8 @@ vi.mock('@/api/nodes', () => ({
 
 import { fetchNodesPage } from '@/api/nodes'
 import { useNodesStore } from '@/stores/nodes'
+import { useAsideStore } from '@/stores/aside'
+import NodeDetailPanel from '@/components/aside/NodeDetailPanel.vue'
 import InfiniteNodeFeed from '../InfiniteNodeFeed.vue'
 
 // jsdom has no IntersectionObserver; this stand-in lets a test fire the
@@ -110,5 +112,48 @@ describe('InfiniteNodeFeed', () => {
 
     expect(fetchNodesPage).toHaveBeenCalledTimes(1)
     expect(useNodesStore().items).toHaveLength(1)
+  })
+
+  it('loads earlier pages once the end is reached when the first page is not page 1', async () => {
+    fetchNodesPage
+      .mockResolvedValueOnce(apiPage(2, [{ type: 'text', value: 'b' }], 2))
+      .mockResolvedValueOnce(apiPage(1, [{ type: 'text', value: 'a' }], 2))
+    const wrapper = await mountFeed()
+
+    sentinelsIntersect()
+    await flushPromises()
+
+    // The store always bootstraps by asking for page 1; the response's own
+    // page number decides whether earlier pages remain.
+    expect(fetchNodesPage.mock.calls).toEqual([[1], [1]])
+    expect(wrapper.findAll('li').map((li) => li.text())).toEqual(['a#0', 'b#1'])
+  })
+
+  it('stops filling after a failed load of an earlier page', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    fetchNodesPage
+      .mockResolvedValueOnce(apiPage(3, [{ type: 'text', value: 'c' }], 3))
+      .mockRejectedValueOnce(new Error('boom'))
+    const wrapper = await mountFeed()
+
+    sentinelsIntersect()
+    await flushPromises()
+
+    expect(fetchNodesPage).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('Failed to load more.')
+  })
+
+  it('opens the node detail panel in the aside when an item is clicked', async () => {
+    fetchNodesPage.mockResolvedValueOnce(apiPage(1, [{ type: 'text', value: 'a' }], 1))
+    const wrapper = await mountFeed()
+    sentinelsIntersect()
+    await flushPromises()
+
+    await wrapper.find('li').trigger('click')
+
+    const aside = useAsideStore()
+    expect(aside.isOpen).toBe(true)
+    expect(aside.activeComponent).toBe(NodeDetailPanel)
+    expect(aside.activeProps.node).toMatchObject({ index: 0, value: 'a' })
   })
 })

@@ -71,4 +71,20 @@ describe('markdownTourSteps', () => {
 
     expect(stepCount).toBe(1)
   })
+
+  it('gives a tight list item holding several highlighted blocks a single stop', () => {
+    const { doc, stepCount } = render('- ==a==\n  ```\n  x\n  ```\n  ==b==\n- ==c==')
+
+    expect(stopTags(doc)).toEqual([
+      ['li', '0'],
+      ['li', '1'],
+    ])
+    expect(stepCount).toBe(2)
+  })
+
+  it('copes with a parse state that has no env', () => {
+    const md = new MarkdownIt().use(markdownItMark).use(markdownTourSteps)
+
+    expect(() => md.core.process(new md.core.State('==a==', md, undefined))).not.toThrow()
+  })
 })

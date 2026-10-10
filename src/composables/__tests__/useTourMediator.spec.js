@@ -54,4 +54,40 @@ describe('useTourMediator (v-tour-node)', () => {
 
     expect(tourStore.nodeEls.size).toBe(0)
   })
+
+  it('moves the registration when a node element is re-bound to another index', async () => {
+    const index = ref(3)
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          const { vTourNode } = useTourMediator()
+          return () => withDirectives(h('li'), [[vTourNode, index.value]])
+        },
+      }),
+    )
+    const el = wrapper.element
+
+    index.value = 7
+    await wrapper.vm.$nextTick()
+
+    expect(tourStore.nodeEls.has(3)).toBe(false)
+    expect(tourStore.nodeEls.get(7)).toBe(el)
+  })
+
+  it('keeps the registration when an update does not change the index', async () => {
+    const label = ref('a')
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          const { vTourNode } = useTourMediator()
+          return () => withDirectives(h('li', label.value), [[vTourNode, 3]])
+        },
+      }),
+    )
+
+    label.value = 'b'
+    await wrapper.vm.$nextTick()
+
+    expect(tourStore.nodeEls.get(3)).toBe(wrapper.element)
+  })
 })
