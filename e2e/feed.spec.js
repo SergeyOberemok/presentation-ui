@@ -6,7 +6,8 @@ test.describe('slide feed', () => {
     await mockSlides(page, textSlides(3))
     await app.open()
 
-    await expect(app.feedItems()).toHaveText(['Slide 0#0', 'Slide 1#1', 'Slide 2#2'])
+    // Text slides render as markdown, which ends each paragraph with a newline.
+    await expect(app.feedItems()).toHaveText([/^Slide 0\s*#0$/, /^Slide 1\s*#1$/, /^Slide 2\s*#2$/])
   })
 
   test('renders file:json inline and leaves other file slides out of the feed', async ({

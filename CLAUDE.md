@@ -26,9 +26,10 @@ Stack: Pinia (setup-style stores), Vue Router, Tailwind CSS v4 (via `@tailwindcs
 ## Backend (presentation-api)
 
 - Endpoints (verified against the OpenAPI schema):
-  - `GET /slides/?page=N` (1-indexed, 20 items/page) → `{ page, page_size, total_items, total_pages, items: [{ type, value }] }` (`src/api/slides.js`). The schema's `Slide` has only `type` (a discriminator string) and `value` — no `destination`, so the frontend derives it from `type` (the `slide.destination ??` fallback in `slideFactory.js` is forward-looking).
-  - `GET /slide-resources/{filename}/stream?chunk=&delay_ms=` → Server-Sent Events stream of one chunk of a file in the backend's `slide_resources/` (`src/api/slideStream.js`). Chunks are split on standalone `---` lines (not inside fenced code, markdown tables, or leading YAML front matter); `chunk` is 0-based and clamped to the last chunk. `message` events carry one line each (event `id` = line index within the chunk); a terminal `done` event carries `{ chunk_index, total_chunks, has_more }` — stop requesting once `has_more` is false. The `Last-Event-ID` header is only for the browser's own reconnect; the client paginates via `chunk`.
-  - Backend-allowed file extensions: `.md`, `.json`, `.js`, `.ts`. The renderer registry also maps `css`/`scss`, which the backend currently won't serve.
+  - `GET /slides/?page=N` (1-indexed, 20 items/page) → `{ page, page_size, total_items, total_pages, items: [{ title, type, destination, value, url }] }` (`src/api/slides.js`). `type` is a discriminator (`text`, `image:png`, `file:md`, …), `value` is the text or a resource filename, `title` is optional, `destination` defaults to `main` on the backend, and `url` is the resource's path (`null` for text). The frontend still derives `destination` from `type` when it's missing (older data, test fixtures).
+  - `GET /slide-resources/stream/{filename}?chunk=&delay_ms=` → Server-Sent Events stream of one chunk of a file in the backend's `slide_resources/` (`src/api/slideStream.js`). Chunks are split on standalone `---` lines (not inside fenced code, markdown tables, or leading YAML front matter); `chunk` is 0-based and clamped to the last chunk. `message` events carry one line each (event `id` = line index within the chunk); a terminal `done` event carries `{ chunk_index, total_chunks, has_more }` — stop requesting once `has_more` is false. The `Last-Event-ID` header is only for the browser's own reconnect; the client paginates via `chunk`.
+  - `GET /slide-resources/files/{filename}` → a media file as-is (images, audio, video, pdf), with Range support. Image slides load it via `src/api/slideResources.js` (`slide.url`, or built from `value`).
+  - Backend-allowed stream extensions: `.md`, `.json`, `.js`, `.ts`. The renderer registry also maps `css`/`scss`, which the backend currently won't serve.
 - In dev, `/slides` and `/slide-resources` are proxied to `localhost:8000` by `vite.config.js` (the backend sends no CORS headers). Override with `VITE_SLIDES_API_BASE_URL` / `VITE_SLIDE_RESOURCES_API_BASE_URL` for environments without the proxy.
 - `.mcp.json` registers a `presentation-api` MCP server that exposes the backend's OpenAPI schema (`http://localhost:8000/openapi.json`) — use it to check the API contract when the backend is running.
 
@@ -42,11 +43,12 @@ Two layers, both keyed by the **namespace** of `slide.type` (the part before `:`
 
 - `src/factories/slideDestination.js` — `resolveDestination(slide)`: where a slide is shown, `main` (inline
   feed) or `chat` (aside). Pure, with no component imports, so the tour, the router and the feed share one
-  rule. `slide.destination` wins when present; otherwise `text` → `main`, `file:json` → `main` (inline code
+  rule. `slide.destination` wins when present; otherwise `text` → `main`, `image` → `main`, `file:json` → `main` (inline code
   slide), every other `file:*` → `chat`, unknown → `main`.
 - `src/factories/slideFactory.js` — `resolveSlideDescriptor(slide)` returns `{ component, props, destination }`;
   unknown namespaces fall back to the `text` resolver.
-  - `text` → `TextSlide`.
+  - `text` → `TextSlide`, which renders `value` as markdown through `MarkdownRenderer` (no tour stops).
+  - `image` → `ImageSlide` with `{ src, title }` (`title` is the alt text and caption; a load error shows a fallback).
   - `file` → `SlideTextStream` with `{ filename: slide.value, index, autoStart }`. `autoStart` is true only
     for `main`: inline slides stream their first chunk when the tour reaches them, while aside slides open
     empty and the first ArrowRight starts the stream.

@@ -1,5 +1,7 @@
 import TextSlide from '@/components/TextSlide.vue'
+import ImageSlide from '@/components/slides/ImageSlide.vue'
 import SlideTextStream from '@/components/slides/SlideTextStream.vue'
+import { resolveSlideResourceUrl } from '@/api/slideResources'
 import { MAIN, slideNamespace, resolveDestination } from '@/factories/slideDestination'
 
 // Resolved per slide `type` namespace (the part before ":", e.g. "file" in
@@ -11,6 +13,10 @@ const TYPE_RESOLVERS = {
   text: (slide) => ({
     component: TextSlide,
     props: { value: slide.value },
+  }),
+  image: (slide) => ({
+    component: ImageSlide,
+    props: { src: resolveSlideResourceUrl(slide), title: slide.title ?? null },
   }),
   file: (slide, destination) => ({
     component: SlideTextStream,

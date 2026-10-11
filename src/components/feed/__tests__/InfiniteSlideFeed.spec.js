@@ -63,7 +63,7 @@ describe('InfiniteSlideFeed', () => {
     await flushPromises()
 
     expect(fetchSlidesPage.mock.calls).toEqual([[1], [2]])
-    expect(wrapper.findAll('li').map((li) => li.text())).toEqual(['a#0', 'b#1'])
+    expect(wrapper.findAll('li').map((li) => li.text().replace(/\s+/g, ''))).toEqual(['a#0', 'b#1'])
   })
 
   it('renders only main-destination slides inline', async () => {
@@ -83,7 +83,7 @@ describe('InfiniteSlideFeed', () => {
     sentinelsIntersect()
     await flushPromises()
 
-    expect(wrapper.findAll('li').map((li) => li.text())).toEqual(['a#0', 'c#2'])
+    expect(wrapper.findAll('li').map((li) => li.text().replace(/\s+/g, ''))).toEqual(['a#0', 'c#2'])
   })
 
   it('stops filling after a failed load instead of retrying in a loop', async () => {
@@ -126,7 +126,7 @@ describe('InfiniteSlideFeed', () => {
     // The store always bootstraps by asking for page 1; the response's own
     // page number decides whether earlier pages remain.
     expect(fetchSlidesPage.mock.calls).toEqual([[1], [1]])
-    expect(wrapper.findAll('li').map((li) => li.text())).toEqual(['a#0', 'b#1'])
+    expect(wrapper.findAll('li').map((li) => li.text().replace(/\s+/g, ''))).toEqual(['a#0', 'b#1'])
   })
 
   it('stops filling after a failed load of an earlier page', async () => {

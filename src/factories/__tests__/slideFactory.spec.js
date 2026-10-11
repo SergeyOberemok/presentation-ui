@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import TextSlide from '@/components/TextSlide.vue'
+import ImageSlide from '@/components/slides/ImageSlide.vue'
 import SlideTextStream from '@/components/slides/SlideTextStream.vue'
 import { resolveSlideDescriptor } from '../slideFactory'
 
@@ -75,6 +76,30 @@ describe('resolveSlideDescriptor', () => {
     expect(descriptor.destination).toBe('chat')
     expect(descriptor.props.autoStart).toBe(false) // aside waits for ArrowRight
     expect(descriptor.props.followStream).toBe(true) // aside follows the newest line
+  })
+
+  it('resolves an image slide to ImageSlide, using the url the backend sends', () => {
+    const descriptor = resolveSlideDescriptor({
+      title: 'funny image',
+      type: 'image:png',
+      destination: 'main',
+      value: 'Screenshot (1).png',
+      url: '/slide-resources/files/Screenshot%20%281%29.png',
+    })
+
+    expect(descriptor.component).toBe(ImageSlide)
+    expect(descriptor.props).toEqual({
+      src: '/slide-resources/files/Screenshot%20%281%29.png',
+      title: 'funny image',
+    })
+    expect(descriptor.destination).toBe('main')
+  })
+
+  it('builds the image url from the value when the slide has none', () => {
+    const descriptor = resolveSlideDescriptor({ type: 'image:png', value: 'a b.png' })
+
+    expect(descriptor.props).toEqual({ src: '/slide-resources/files/a%20b.png', title: null })
+    expect(descriptor.destination).toBe('main')
   })
 
   it('falls back to the text resolver for an unknown type', () => {

@@ -4,6 +4,8 @@
 // Register mocks before page.goto('/') - the slides store bootstraps page 1
 // on mount.
 
+import { Buffer } from 'node:buffer'
+
 const PAGE_SIZE = 20
 
 // Serves `slides` (an array of { type, value }) as the paginated /slides/
@@ -56,7 +58,7 @@ export function sseBody(lines, { chunkIndex, totalChunks, withDone = true }) {
 }
 
 // Serves `chunks` (an array of chunks, each an array of lines) as
-// /slide-resources/{filename}/stream. The backend clamps `chunk` to the last
+// /slide-resources/stream/{filename}. The backend clamps `chunk` to the last
 // chunk, and so does this mock.
 // - failChunk: that chunk's first response drops the connection mid-chunk
 //   (no `done`). Later requests for it succeed, so retries can be tested.
@@ -71,7 +73,7 @@ export async function mockSlideStream(page, filename, chunks, { failChunk, holdC
   const held = new Promise((resolve) => (release = resolve))
 
   await page.route(
-    (url) => url.pathname === `/slide-resources/${encodeURIComponent(filename)}/stream`,
+    (url) => url.pathname === `/slide-resources/stream/${encodeURIComponent(filename)}`,
     async (route) => {
       const url = new URL(route.request().url())
       requests.push(url)
@@ -108,4 +110,31 @@ export function textSlides(count, offset = 0) {
     type: 'text',
     value: `Slide ${offset + i}`,
   }))
+}
+
+// A 1x1 transparent PNG.
+const PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+)
+
+// Serves every /slide-resources/files/{filename} (media slides) as a tiny PNG,
+// or as a 404 for `missing` filenames. Returns the requested pathnames.
+export async function mockSlideFiles(page, { missing = [] } = {}) {
+  const requests = []
+
+  await page.route(
+    (url) => url.pathname.startsWith('/slide-resources/files/'),
+    (route) => {
+      const { pathname } = new URL(route.request().url())
+      requests.push(pathname)
+
+      const filename = decodeURIComponent(pathname.slice('/slide-resources/files/'.length))
+      if (missing.includes(filename)) return route.fulfill({ status: 404 })
+
+      return route.fulfill({ contentType: 'image/png', body: PIXEL_PNG })
+    },
+  )
+
+  return requests
 }

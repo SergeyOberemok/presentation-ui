@@ -11,7 +11,7 @@ const BASE_URL = import.meta.env.VITE_SLIDE_RESOURCES_API_BASE_URL ?? ''
 // chunk selects which chunk of the file to stream (0-based). Omitted/0 matches
 // the backend's own default, so it's left off the URL just like delayMs.
 export function buildSlideStreamUrl(filename, { delayMs, chunk } = {}) {
-  const base = `${BASE_URL}/slide-resources/${encodeURIComponent(filename)}/stream`
+  const base = `${BASE_URL}/slide-resources/stream/${encodeURIComponent(filename)}`
   const params = new URLSearchParams()
   if (delayMs) params.set('delay_ms', delayMs)
   if (chunk) params.set('chunk', chunk)

@@ -18,6 +18,7 @@ describe('resolveDestination', () => {
     [{ type: 'file:md' }, CHAT],
     [{ type: 'file:js' }, CHAT],
     [{ type: 'file:json' }, MAIN],
+    [{ type: 'image:png' }, MAIN],
     [{ type: 'mystery' }, MAIN],
     [{}, MAIN],
   ])('defaults %o to %s', (slide, expected) => {

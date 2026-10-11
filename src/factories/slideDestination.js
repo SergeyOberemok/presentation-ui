@@ -15,9 +15,11 @@ export function slideNamespace(slide) {
 }
 
 // Per-namespace default, used when the backend doesn't send `destination`
-// (today it never does - the schema's Slide only has `type`/`value`).
+// (the current backend always sends one, defaulting to "main"; older data and
+// test fixtures may not).
 const DEFAULT_DESTINATIONS = {
   text: () => MAIN,
+  image: () => MAIN,
   // `file:json` renders as an inline code slide in the main feed; every other
   // file type defaults to the aside panel the backend designed this
   // namespace around.
