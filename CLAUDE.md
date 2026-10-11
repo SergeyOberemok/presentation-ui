@@ -89,6 +89,11 @@ produced from content must go through `DOMPurify.sanitize` before `v-html`.
 - `useGuidedTour` (mounted by the feed) — ArrowRight/ArrowLeft move `currentIndex` via
   `slidesStore.ensureLoaded`, which waits for data rather than a DOM element because `chat` slides are never
   rendered inline. It then waits a tick and scrolls to the slide only if its destination is `main`.
+- Presenter clicker (Logitech R400) keys: PageDown/PageUp are aliases of ArrowRight/ArrowLeft
+  (`NEXT_KEYS`/`PREV_KEYS` in `useGuidedTour`, so captures get them too). `usePresenterControls` (mounted
+  by `PresenterBlankScreen` in `MainView`) maps the Slideshow button's F5 to a fullscreen toggle instead
+  of a reload (its alternate Escape exits fullscreen natively) and the Blank button's `.` to a black
+  overlay. In dev it also logs every keydown as `[presenter]` (temporary, for checking a device's codes).
 - `useTourMediator` — `v-tour-slide` directive registering feed `<li>`s into `slideEls`.
 - `useSlideRouter` — watches the current slide: opens `chat` slides in the aside, closes the aside for `main`
   slides.

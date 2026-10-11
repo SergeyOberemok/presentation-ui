@@ -75,10 +75,35 @@ describe('useGuidedTour', () => {
     fetchSlidesPage.mockReset()
   })
 
-  it('registers an ArrowLeft/ArrowRight keyboard handler', () => {
+  it('registers the arrow keys and the presenter PageUp/PageDown keys', () => {
     useGuidedTour(fakeContainer())
 
-    expect(onKeyStroke).toHaveBeenCalledWith(['ArrowLeft', 'ArrowRight'], expect.any(Function))
+    expect(onKeyStroke).toHaveBeenCalledWith(
+      ['ArrowLeft', 'PageUp', 'ArrowRight', 'PageDown'],
+      expect.any(Function),
+    )
+  })
+
+  it('treats PageDown / PageUp (presenter clicker) like ArrowRight / ArrowLeft', async () => {
+    seedLoaded(0, 1)
+    useGuidedTour(fakeContainer())
+
+    await press('PageDown')
+    await vi.waitFor(() => expect(tourStore.currentIndex).toBe(1))
+    await press('PageUp')
+    await vi.waitFor(() => expect(tourStore.currentIndex).toBe(0))
+  })
+
+  it('delegates PageDown to an active capture like ArrowRight', async () => {
+    seedLoaded(0, 1)
+    const onNext = vi.fn()
+    tourStore.capture({ onNext })
+    useGuidedTour(fakeContainer())
+
+    await press('PageDown')
+
+    expect(onNext).toHaveBeenCalledTimes(1)
+    expect(tourStore.currentIndex).toBe(0)
   })
 
   it('scrolls straight to an already-loaded slide without loading more pages', async () => {

@@ -23,6 +23,16 @@ export default defineConfig([
     },
   },
 
+  // Claude Code hooks run in Node, not the browser.
+  {
+    files: ['.claude/hooks/**'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
   js.configs.recommended,
   ...pluginVue.configs['flat/essential'],
 

@@ -5,12 +5,13 @@ import { useTourStore } from '@/stores/tour'
 import { useSlidesStore } from '@/stores/slides'
 import { useTourCapture } from '@/composables/useTourCapture'
 import { MAIN, resolveDestination } from '@/factories/slideDestination'
+import { isEditableTarget } from '@/utils/isEditableTarget'
 
-function isEditableTarget(target) {
-  if (!target) return false
-  const tag = target.tagName
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
-}
+// A presenter clicker (e.g. Logitech R400) sends PageDown/PageUp for its
+// next/back buttons, so they're aliases of the arrow keys everywhere,
+// including slide captures.
+export const NEXT_KEYS = ['ArrowRight', 'PageDown']
+export const PREV_KEYS = ['ArrowLeft', 'PageUp']
 
 // Keyboard-driven guided tour: ArrowRight/ArrowLeft step through slide
 // indices, asking the slides store to load pages until the target's data
@@ -66,11 +67,12 @@ export function useGuidedTour(containerRef) {
     return goTo(currentIndex.value - 1)
   }
 
-  onKeyStroke(['ArrowLeft', 'ArrowRight'], async (e) => {
+  onKeyStroke([...PREV_KEYS, ...NEXT_KEYS], async (e) => {
     if (isEditableTarget(e.target)) return
 
     // Runs synchronously before any await below, as required for
-    // preventDefault() to actually suppress the browser's default action.
+    // preventDefault() to actually suppress the browser's default action
+    // (including PageUp/PageDown scrolling the feed).
     e.preventDefault()
 
     // A captured slide (e.g. SlideTextStream) drives ArrowRight itself; for
@@ -78,7 +80,7 @@ export function useGuidedTour(containerRef) {
     // previous steps - releases control so the main tour's prev() takes over.
     // handleNext()/handlePrev() await the capture's own handler, so this
     // works whether that handler is sync or async.
-    if (e.key === 'ArrowRight') {
+    if (NEXT_KEYS.includes(e.key)) {
       if (await handleNext()) return
       next()
     } else {
